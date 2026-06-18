@@ -1,0 +1,10 @@
+# OS / editor cruft
+Thumbs.db
+desktop.ini
+.DS_Store
+*~
+~$*
+
+# ไฟล์รายงานจากเครื่องสแกนนิ้ว / ข้อมูลพนักงาน — ห้ามขึ้น GitHub
+*.xls
+*.xlsx
