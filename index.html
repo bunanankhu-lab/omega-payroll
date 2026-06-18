@@ -77,6 +77,21 @@
     background: #fff; border: 1px solid var(--border); border-radius: 11px;
     padding: 5px 9px; box-shadow: var(--shadow);
   }
+  .user-email { font-size: .8rem; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* login */
+  #loginOverlay {
+    position: fixed; inset: 0; background: var(--bg);
+    align-items: center; justify-content: center; padding: 20px; z-index: 100;
+  }
+  .login-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: var(--shadow); padding: 30px 26px; width: 100%; max-width: 380px; text-align: center;
+  }
+  .login-logo { height: 60px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 6px 10px; margin-bottom: 14px; }
+  .login-card h2 { margin: 6px 0 2px; font-size: 1.2rem; }
+  .login-card .sub { color: var(--muted); font-size: .85rem; margin-bottom: 18px; }
+  .login-card .field { text-align: left; margin-bottom: 13px; }
 
   .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 18px; }
   .sum-card {
@@ -234,14 +249,36 @@
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- ============ หน้าล็อกอิน ============ -->
+<div id="loginOverlay" style="display:flex;">
+  <div class="login-card">
+    <img src="logo.png" alt="OMEGA E-Sarn" class="login-logo">
+    <h2>เข้าสู่ระบบเงินเดือน</h2>
+    <div class="sub">บริษัทโอเมก้าอีสาน</div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">อีเมล</label>
+        <input type="email" id="loginEmail" autocomplete="username" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label for="loginPass">รหัสผ่าน</label>
+        <input type="password" id="loginPass" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button type="submit" class="submit-btn" id="loginBtn">เข้าสู่ระบบ</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+  </div>
+</div>
+
+<div class="app" style="display:none;">
 
   <header class="top">
     <div class="brand">
       <img src="logo.png" alt="OMEGA E-Sarn" class="logo">
       <div>
         <h1>บริษัทโอเมก้าอีสาน</h1>
-        <div class="sub">ระบบจัดการเงินเดือนพนักงาน · ข้อมูลถูกเก็บไว้ในเครื่องนี้</div>
+        <div class="sub">ระบบจัดการเงินเดือนพนักงาน · ข้อมูลเก็บบนคลาวด์ (Supabase)</div>
       </div>
     </div>
     <div class="top-actions">
@@ -249,7 +286,9 @@
         <label for="globalMonth">เดือน</label>
         <input type="month" id="globalMonth">
       </div>
+      <span class="user-email" id="userEmail"></span>
       <button class="theme-btn" id="themeBtn" type="button">🌙 โหมดมืด</button>
+      <button class="theme-btn" id="logoutBtn" type="button">🚪 ออกจากระบบ</button>
     </div>
   </header>
 
@@ -479,21 +518,19 @@
 
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="xlsx.full.min.js"></script>
 <script>
 (function () {
   "use strict";
 
-  var EMP_KEY = "omega_payroll_employees_v1";
-  var SLIP_KEY = "omega_payroll_slips_v1";
-  var SET_KEY = "omega_payroll_settings_v1";
+  var SUPABASE_URL = "https://nguwkfxwgoaghgfwdxhy.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_uIljS3UseTALT_PbU-F1pg_WcfQoe1g";
   var THEME_KEY = "omega_payroll_theme";
 
   var SS_RATE = 0.05, SS_MAX = 750;
-
   var THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
                      "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
-
   var DEFAULT_SETTINGS = {
     startTime: "08:30", endTime: "17:30",
     daysPerMonth: 30, hoursPerDay: 8,
@@ -501,10 +538,12 @@
     tier1Max: 150, tier1Rate: 3, tier2Max: 300, tier2Rate: 5, tier3Rate: 8
   };
 
+  var sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
   // ---------- state ----------
-  var employees = loadArr(EMP_KEY);
-  var slips = loadArr(SLIP_KEY);
-  var settings = loadSettings();
+  var employees = [];
+  var slips = [];
+  var settings = mergeSettings({});
   var editingEmpId = null;
   var currentMonth = todayStr().slice(0, 7);
   var activeTab = "employees";
@@ -513,6 +552,10 @@
   // ---------- elements ----------
   var $ = function (id) { return document.getElementById(id); };
   var el = {
+    appRoot: document.querySelector(".app"),
+    loginOverlay: $("loginOverlay"), loginForm: $("loginForm"), loginEmail: $("loginEmail"),
+    loginPass: $("loginPass"), loginBtn: $("loginBtn"), loginErr: $("loginErr"),
+    userEmail: $("userEmail"), logoutBtn: $("logoutBtn"),
     globalMonth: $("globalMonth"), themeBtn: $("themeBtn"),
     sumCount: $("sumCount"), sumNet: $("sumNet"), sumDeduct: $("sumDeduct"),
     empForm: $("empForm"), empFormTitle: $("empFormTitle"),
@@ -524,36 +567,65 @@
     payrollFoot: $("payrollFoot"), payrollEmpty: $("payrollEmpty"),
     payrollSaveBar: $("payrollSaveBar"), savePayrollBtn: $("savePayrollBtn"), recalcScanBtn: $("recalcScanBtn"),
     slipEmp: $("slipEmp"), printSlipBtn: $("printSlipBtn"), slipCard: $("slipCard"),
-    // settings
     setStart: $("setStart"), setEnd: $("setEnd"), setDays: $("setDays"), setHours: $("setHours"),
     setOtMult: $("setOtMult"), setOtThresh: $("setOtThresh"), setOtRound: $("setOtRound"),
     setT1Max: $("setTier1Max"), setT1Rate: $("setTier1Rate"),
     setT2Max: $("setTier2Max"), setT2Rate: $("setTier2Rate"), setT3Rate: $("setTier3Rate"),
-    // import
     scanFile: $("scanFile"), importMsg: $("importMsg"), previewWrap: $("previewWrap"),
     prevMonth: $("prevMonth"), prevCount: $("prevCount"), addMode: $("addMode"),
     previewBody: $("previewBody"), confirmImportBtn: $("confirmImportBtn"),
     toast: $("toast")
   };
 
-  // ---------- storage ----------
-  function loadArr(key) {
-    try { var a = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(a) ? a : []; }
-    catch (e) { return []; }
-  }
-  function loadSettings() {
-    var s = {};
-    try { s = JSON.parse(localStorage.getItem(SET_KEY) || "{}") || {}; } catch (e) { s = {}; }
+  // ---------- settings + mapping ----------
+  function mergeSettings(s) {
     var out = {};
-    for (var k in DEFAULT_SETTINGS) out[k] = (s[k] != null ? s[k] : DEFAULT_SETTINGS[k]);
+    for (var k in DEFAULT_SETTINGS) out[k] = (s && s[k] != null) ? s[k] : DEFAULT_SETTINGS[k];
     return out;
   }
-  function saveEmployees() { persist(EMP_KEY, employees); }
-  function saveSlips() { persist(SLIP_KEY, slips); }
-  function saveSettings() { persist(SET_KEY, settings); }
-  function persist(key, val) {
-    try { localStorage.setItem(key, JSON.stringify(val)); }
-    catch (e) { alert("ไม่สามารถบันทึกข้อมูลได้ (localStorage อาจถูกปิดอยู่)"); }
+  function dbToEmp(r) {
+    return { id: r.id, code: r.code || "", name: r.name, position: r.position || "", department: r.department || "",
+             baseSalary: Number(r.base_salary) || 0, startDate: r.start_date || "", ssEnabled: r.ss_enabled !== false };
+  }
+  function empToDb(e) {
+    return { code: e.code || "", name: e.name, position: e.position || "", department: e.department || "",
+             base_salary: e.baseSalary || 0, start_date: e.startDate || null, ss_enabled: !!e.ssEnabled };
+  }
+  function dbToSlip(r) {
+    return { id: r.id, employeeId: r.employee_id, month: r.month, baseSalary: Number(r.base_salary) || 0,
+             ot: Number(r.ot) || 0, allowance: Number(r.allowance) || 0, socialSecurity: Number(r.social_security) || 0,
+             leaveDeduct: Number(r.leave_deduct) || 0, otHours: r.ot_hours == null ? null : Number(r.ot_hours),
+             lateMinutes: r.late_minutes == null ? null : Number(r.late_minutes), note: r.note || "" };
+  }
+  function slipToDb(s) {
+    return { employee_id: s.employeeId, month: s.month, base_salary: s.baseSalary || 0, ot: s.ot || 0,
+             allowance: s.allowance || 0, social_security: s.socialSecurity || 0, leave_deduct: s.leaveDeduct || 0,
+             ot_hours: s.otHours == null ? null : s.otHours, late_minutes: s.lateMinutes == null ? null : s.lateMinutes,
+             note: s.note || "" };
+  }
+
+  // ---------- Supabase data ops ----------
+  async function loadAll() {
+    var er = await sb.from("employees").select("*");
+    if (er.error) throw er.error;
+    employees = (er.data || []).map(dbToEmp);
+    var pr = await sb.from("payslips").select("*");
+    if (pr.error) throw pr.error;
+    slips = (pr.data || []).map(dbToSlip);
+    var sr = await sb.from("app_settings").select("data").eq("id", 1).maybeSingle();
+    var raw = (sr.data && sr.data.data) ? sr.data.data : {};
+    settings = mergeSettings(raw);
+  }
+  function mergeSlipsFromDb(rows) {
+    (rows || []).forEach(function (row) {
+      var s = dbToSlip(row), ex = findSlip(s.employeeId, s.month);
+      if (ex) { for (var k in s) ex[k] = s[k]; } else slips.push(s);
+    });
+  }
+  async function saveSettings() {
+    if (!sb) return;
+    var r = await sb.from("app_settings").upsert({ id: 1, data: settings }).select();
+    if (r.error) flash("บันทึกตั้งค่าไม่สำเร็จ: " + r.error.message);
   }
 
   // ---------- helpers ----------
@@ -561,7 +633,6 @@
   function toNum(v) { var n = parseFloat(String(v == null ? "" : v).replace(/[^\d.\-]/g, "")); return isNaN(n) ? 0 : n; }
   function round2(n) { return Math.round(n * 100) / 100; }
   function fmt(n) { return "฿" + (n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function genId() { return Date.now() + Math.floor(Math.random() * 100000); }
   function todayStr() {
     var d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -589,7 +660,6 @@
   function findEmp(id) { for (var i = 0; i < employees.length; i++) if (employees[i].id === id) return employees[i]; return null; }
   function normCode(c) {
     c = String(c == null ? "" : c).trim();
-    // รหัสตัวเลขตัด 0 นำหน้าออก ("02" = "2", "08" = "8") ส่วนรหัสที่มีตัวอักษรเทียบแบบ lowercase
     return /^\d+$/.test(c) ? String(parseInt(c, 10)) : c.toLowerCase();
   }
   function findEmpByCode(code) {
@@ -611,7 +681,7 @@
     if (settings.otRound === "half") return Math.round(h * 2) / 2;
     if (settings.otRound === "ceil1") return Math.ceil(h);
     if (settings.otRound === "nearest1") return Math.round(h);
-    return Math.floor(h); // floor1 (ค่าเริ่มต้น) ปัดลงชั่วโมงเต็ม
+    return Math.floor(h);
   }
   function hrStr(n) { return String(Math.round((n || 0) * 100) / 100); }
   function otAmount(otHours, emp) { return round2(otRoundHours(otHours) * hourlyWage(emp) * (num(settings.otMultiplier) || 0)); }
@@ -691,13 +761,13 @@
         '<td class="num">' + fmt(e.baseSalary) + "</td>" +
         "<td>" + (e.ssEnabled ? '<span class="badge on">มี</span>' : '<span class="badge off">ไม่มี</span>') + "</td>" +
         '<td style="text-align:right;white-space:nowrap;">' +
-          '<button class="icon-btn" data-edit="' + e.id + '">แก้ไข</button> ' +
-          '<button class="icon-btn danger" data-del="' + e.id + '">ลบ</button>' +
+          '<button class="icon-btn" data-edit="' + escapeHtml(e.id) + '">แก้ไข</button> ' +
+          '<button class="icon-btn danger" data-del="' + escapeHtml(e.id) + '">ลบ</button>' +
         "</td></tr>";
     }).join("");
   }
 
-  function submitEmployee(ev) {
+  async function submitEmployee(ev) {
     ev.preventDefault();
     el.empErr.textContent = "";
     var name = el.empName.value.trim();
@@ -709,14 +779,23 @@
       position: el.empPosition.value.trim(), department: el.empDept.value.trim(),
       baseSalary: round2(salary), startDate: el.empStart.value || "", ssEnabled: el.empSs.checked
     };
-    if (editingEmpId != null) {
-      var emp = findEmp(editingEmpId);
-      if (emp) for (var k in data) emp[k] = data[k];
-      flash("แก้ไขข้อมูลพนักงานเรียบร้อย");
-    } else {
-      data.id = genId(); employees.push(data); flash("เพิ่มพนักงานเรียบร้อย");
-    }
-    saveEmployees(); resetEmpForm(); renderAll();
+    el.empSubmitBtn.disabled = true;
+    try {
+      if (editingEmpId != null) {
+        var r = await sb.from("employees").update(empToDb(data)).eq("id", editingEmpId).select().single();
+        if (r.error) throw r.error;
+        var emp = findEmp(editingEmpId);
+        if (emp) { var nd = dbToEmp(r.data); for (var k in nd) emp[k] = nd[k]; }
+        flash("แก้ไขข้อมูลพนักงานเรียบร้อย");
+      } else {
+        var r2 = await sb.from("employees").insert(empToDb(data)).select().single();
+        if (r2.error) throw r2.error;
+        employees.push(dbToEmp(r2.data));
+        flash("เพิ่มพนักงานเรียบร้อย");
+      }
+    } catch (e) { el.empErr.textContent = "บันทึกไม่สำเร็จ: " + e.message; el.empSubmitBtn.disabled = false; return; }
+    el.empSubmitBtn.disabled = false;
+    resetEmpForm(); renderAll();
   }
 
   function startEditEmployee(id) {
@@ -735,13 +814,14 @@
     el.empFormTitle.textContent = "➕ เพิ่มพนักงาน"; el.empSubmitBtn.textContent = "บันทึกพนักงาน";
     el.empCancelBtn.style.display = "none";
   }
-  function deleteEmployee(id) {
+  async function deleteEmployee(id) {
     var e = findEmp(id); if (!e) return;
     var hasSlips = slips.some(function (s) { return s.employeeId === id; });
     if (!confirm("ต้องการลบ \"" + e.name + "\" ใช่หรือไม่?" + (hasSlips ? "\n(สลิป/ข้อมูลเงินเดือนของคนนี้จะถูกลบด้วย)" : ""))) return;
+    var r = await sb.from("employees").delete().eq("id", id);
+    if (r.error) { flash("ลบไม่สำเร็จ: " + r.error.message); return; }
     employees = employees.filter(function (x) { return x.id !== id; });
     slips = slips.filter(function (s) { return s.employeeId !== id; });
-    saveEmployees(); saveSlips();
     if (editingEmpId === id) resetEmpForm();
     renderAll(); flash("ลบพนักงานเรียบร้อย");
   }
@@ -763,7 +843,7 @@
       var lateHint = (s && s.lateMinutes != null) ? '<div class="cell-hint">' + Math.round(s.lateMinutes) + ' นาทีสาย</div>' : "";
       var nameCell = escapeHtml(e.name) +
         '<div class="hint">' + escapeHtml(e.code ? "รหัส " + e.code : "") + (e.position ? " · " + escapeHtml(e.position) : "") + "</div>";
-      return '<tr data-emp="' + e.id + '">' +
+      return '<tr data-emp="' + escapeHtml(e.id) + '">' +
         "<td>" + nameCell + "</td>" +
         '<td class="num">' + fmt(e.baseSalary) + "</td>" +
         '<td class="num"><input class="pay-input in-ot" type="number" min="0" step="0.01" value="' + (ot || "") + '" placeholder="0">' + otHint + "</td>" +
@@ -771,14 +851,14 @@
         '<td class="num neg">' + fmt(computeSS(e)) + "</td>" +
         '<td class="num"><input class="pay-input in-leave" type="number" min="0" step="0.01" value="' + (leave || "") + '" placeholder="0">' + lateHint + "</td>" +
         '<td class="num net net-cell">' + fmt(0) + "</td>" +
-        '<td style="text-align:right;"><button class="icon-btn" data-slip="' + e.id + '">สลิป</button></td>' +
+        '<td style="text-align:right;"><button class="icon-btn" data-slip="' + escapeHtml(e.id) + '">สลิป</button></td>' +
       "</tr>";
     }).join("");
     recalcAllRows();
   }
 
   function recalcRow(tr) {
-    var emp = findEmp(Number(tr.getAttribute("data-emp")));
+    var emp = findEmp(tr.getAttribute("data-emp"));
     if (!emp) return { gross: 0, ss: 0, leave: 0, net: 0 };
     var ot = num(tr.querySelector(".in-ot").value), allow = num(tr.querySelector(".in-allow").value), leave = num(tr.querySelector(".in-leave").value);
     var ss = computeSS(emp), net = emp.baseSalary + ot + allow - ss - leave;
@@ -796,41 +876,49 @@
       '<td class="num net">' + fmt(tNet) + "</td><td></td></tr>";
   }
 
-  function savePayroll() {
+  async function savePayroll() {
+    var recs = [];
     el.payrollBody.querySelectorAll("tr[data-emp]").forEach(function (tr) {
-      var empId = Number(tr.getAttribute("data-emp")), emp = findEmp(empId);
+      var empId = tr.getAttribute("data-emp"), emp = findEmp(empId);
       if (!emp) return;
-      var existing = findSlip(empId, currentMonth);
-      var vals = {
-        baseSalary: emp.baseSalary,
+      var ex = findSlip(empId, currentMonth);
+      recs.push({
+        employeeId: empId, month: currentMonth, baseSalary: emp.baseSalary,
         ot: round2(num(tr.querySelector(".in-ot").value)),
         allowance: round2(num(tr.querySelector(".in-allow").value)),
         socialSecurity: computeSS(emp),
-        leaveDeduct: round2(num(tr.querySelector(".in-leave").value))
-      };
-      if (existing) { for (var k in vals) existing[k] = vals[k]; }
-      else {
-        vals.id = genId(); vals.employeeId = empId; vals.month = currentMonth;
-        vals.note = ""; vals.createdAt = todayStr(); slips.push(vals);
-      }
+        leaveDeduct: round2(num(tr.querySelector(".in-leave").value)),
+        otHours: ex ? ex.otHours : null, lateMinutes: ex ? ex.lateMinutes : null, note: ex ? ex.note : ""
+      });
     });
-    saveSlips(); renderSummary();
-    flash("บันทึกเงินเดือน " + monthLabel(currentMonth) + " เรียบร้อย (" + employees.length + " คน)");
+    if (!recs.length) return true;
+    var r = await sb.from("payslips").upsert(recs.map(slipToDb), { onConflict: "employee_id,month" }).select();
+    if (r.error) { flash("บันทึกไม่สำเร็จ: " + r.error.message); return false; }
+    mergeSlipsFromDb(r.data);
+    renderSummary();
+    flash("บันทึกเงินเดือน " + monthLabel(currentMonth) + " เรียบร้อย (" + recs.length + " คน)");
+    return true;
   }
 
-  function recalcFromScan() {
-    savePayroll(); // persist current manual edits (allowance ฯลฯ) ก่อน
-    var n = 0;
+  async function recalcFromScan() {
+    var ok = await savePayroll();
+    if (ok === false) return;
+    var updates = [];
     slips.filter(function (s) { return s.month === currentMonth; }).forEach(function (s) {
       if (s.otHours == null && s.lateMinutes == null) return;
       var emp = findEmp(s.employeeId); if (!emp) return;
       s.baseSalary = emp.baseSalary; s.socialSecurity = computeSS(emp);
       if (s.otHours != null) s.ot = otAmount(s.otHours, emp);
       if (s.lateMinutes != null) s.leaveDeduct = lateDeduct(s.lateMinutes);
-      n++;
+      updates.push(s);
     });
-    saveSlips(); renderPayroll(); renderSummary();
-    flash(n ? "คำนวณ OT/หักสายใหม่จากข้อมูลสแกน " + n + " คน" : "ไม่มีข้อมูลสแกนในเดือนนี้ให้คำนวณ");
+    if (updates.length) {
+      var r = await sb.from("payslips").upsert(updates.map(slipToDb), { onConflict: "employee_id,month" }).select();
+      if (r.error) { flash("คำนวณใหม่ไม่สำเร็จ: " + r.error.message); return; }
+      mergeSlipsFromDb(r.data);
+    }
+    renderPayroll(); renderSummary();
+    flash(updates.length ? "คำนวณ OT/หักสายใหม่จากข้อมูลสแกน " + updates.length + " คน" : "ไม่มีข้อมูลสแกนในเดือนนี้ให้คำนวณ");
   }
 
   // ---------- import scan file ----------
@@ -847,7 +935,6 @@
     var extra = out - timeToMin(settings.endTime);
     return extra >= num(settings.otThresholdMin) ? extra : 0;
   }
-
   function findPeriodMonth(wb) {
     for (var si = 0; si < wb.SheetNames.length; si++) {
       var rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[si]], { header: 1, raw: false, defval: "" });
@@ -864,10 +951,8 @@
     for (var i = 0; i < wb.SheetNames.length; i++) if (wb.SheetNames[i].indexOf(keyword) >= 0) return wb.Sheets[wb.SheetNames[i]];
     return null;
   }
-
   function parseScan(wb) {
     var byCode = {};
-    // 1) สรุปเวลาทำงาน → นาทีสาย (คอลัมน์ G / index 6)
     var sumSheet = findSheet(wb, "สรุป");
     if (sumSheet) {
       var srows = XLSX.utils.sheet_to_json(sumSheet, { header: 1, raw: false, defval: "" });
@@ -879,7 +964,6 @@
         }
       });
     }
-    // 2) บันทึกเวลาทำงาน → OT จากเวลาออกงานจริง
     var punchSheet = findSheet(wb, "บันทึกเวลา");
     if (punchSheet) {
       var prows = XLSX.utils.sheet_to_json(punchSheet, { header: 1, raw: false, defval: "" });
@@ -925,39 +1009,53 @@
     el.previewWrap.style.display = "block";
   }
 
-  function applyImport() {
+  async function applyImport() {
     if (!lastParsed) return;
     var month = lastParsed.month, addMode = el.addMode.checked, codes = Object.keys(lastParsed.byCode);
-    var created = 0;
-    codes.forEach(function (code) {
-      var d = lastParsed.byCode[code];
-      var emp = findEmpByCode(code);
-      if (!emp) {
-        emp = { id: genId(), code: String(code), name: d.name || ("พนักงานรหัส " + code),
-                position: "", department: d.dept || "", baseSalary: 0, startDate: "", ssEnabled: true };
-        employees.push(emp); created++;
+    el.confirmImportBtn.disabled = true;
+    try {
+      // 1) สร้างพนักงานที่ยังไม่มี
+      var toCreate = [];
+      codes.forEach(function (code) {
+        if (!findEmpByCode(code)) {
+          var d = lastParsed.byCode[code];
+          toCreate.push({ code: String(code), name: d.name || ("พนักงานรหัส " + code), position: "",
+                          department: d.dept || "", baseSalary: 0, startDate: "", ssEnabled: true });
+        }
+      });
+      var created = 0;
+      if (toCreate.length) {
+        var ins = await sb.from("employees").insert(toCreate.map(empToDb)).select();
+        if (ins.error) throw ins.error;
+        (ins.data || []).forEach(function (row) { employees.push(dbToEmp(row)); });
+        created = toCreate.length;
       }
-      var otH = d.otMin / 60, lateM = d.lateMin;
-      var slip = findSlip(emp.id, month);
-      if (!slip) {
-        slip = { id: genId(), employeeId: emp.id, month: month, baseSalary: emp.baseSalary,
-                 ot: 0, allowance: 0, socialSecurity: computeSS(emp), leaveDeduct: 0, note: "",
-                 otHours: 0, lateMinutes: 0, createdAt: todayStr() };
-        slips.push(slip);
+      // 2) สร้าง/อัปเดตสลิป
+      var recs = [];
+      codes.forEach(function (code) {
+        var d = lastParsed.byCode[code], emp = findEmpByCode(code); if (!emp) return;
+        var otH = d.otMin / 60, lateM = d.lateMin, ex = findSlip(emp.id, month);
+        var otHours, lateMinutes;
+        if (ex && addMode) { otHours = (ex.otHours || 0) + otH; lateMinutes = (ex.lateMinutes || 0) + lateM; }
+        else { otHours = otH; lateMinutes = lateM; }
+        recs.push({ employeeId: emp.id, month: month, baseSalary: emp.baseSalary, socialSecurity: computeSS(emp),
+          ot: otAmount(otHours, emp), leaveDeduct: lateDeduct(lateMinutes), allowance: ex ? ex.allowance : 0,
+          otHours: otHours, lateMinutes: lateMinutes, note: ex ? ex.note : "" });
+      });
+      if (recs.length) {
+        var up = await sb.from("payslips").upsert(recs.map(slipToDb), { onConflict: "employee_id,month" }).select();
+        if (up.error) throw up.error;
+        mergeSlipsFromDb(up.data);
       }
-      if (addMode) { slip.otHours = (slip.otHours || 0) + otH; slip.lateMinutes = (slip.lateMinutes || 0) + lateM; }
-      else { slip.otHours = otH; slip.lateMinutes = lateM; }
-      slip.baseSalary = emp.baseSalary;
-      slip.socialSecurity = computeSS(emp);
-      slip.ot = otAmount(slip.otHours, emp);
-      slip.leaveDeduct = lateDeduct(slip.lateMinutes);
-    });
-    saveEmployees(); saveSlips();
-    currentMonth = month; el.globalMonth.value = month;
-    el.previewWrap.style.display = "none"; el.scanFile.value = ""; lastParsed = null;
-    flash("นำเข้าเดือน " + monthLabel(month) + " สำเร็จ" + (created ? " · สร้างพนักงานใหม่ " + created + " คน" : ""));
-    switchTab("payroll");
-    renderAll();
+      currentMonth = month; el.globalMonth.value = month;
+      el.previewWrap.style.display = "none"; el.scanFile.value = ""; lastParsed = null;
+      flash("นำเข้าเดือน " + monthLabel(month) + " สำเร็จ" + (created ? " · สร้างพนักงานใหม่ " + created + " คน" : ""));
+      switchTab("payroll"); renderAll();
+    } catch (e) {
+      flash("นำเข้าไม่สำเร็จ: " + e.message);
+    } finally {
+      el.confirmImportBtn.disabled = false;
+    }
   }
 
   // ---------- slip ----------
@@ -966,13 +1064,13 @@
     var prev = el.slipEmp.value;
     var list = employees.slice().sort(function (a, b) { return (num(a.code) - num(b.code)) || a.name.localeCompare(b.name); });
     el.slipEmp.innerHTML = list.map(function (e) {
-      return '<option value="' + e.id + '">' + escapeHtml((e.code ? e.code + " · " : "") + e.name) + "</option>";
+      return '<option value="' + escapeHtml(e.id) + '">' + escapeHtml((e.code ? e.code + " · " : "") + e.name) + "</option>";
     }).join("");
-    if (prev && findEmp(Number(prev))) el.slipEmp.value = prev;
+    if (prev && findEmp(prev)) el.slipEmp.value = prev;
   }
   function renderSlip() {
     if (employees.length === 0) { el.slipCard.innerHTML = '<div class="empty">ยังไม่มีพนักงาน</div>'; return; }
-    var emp = findEmp(Number(el.slipEmp.value));
+    var emp = findEmp(el.slipEmp.value);
     if (!emp) { el.slipCard.innerHTML = '<div class="empty">เลือกพนักงาน</div>'; return; }
     var slip = findSlip(emp.id, currentMonth);
     if (!slip) {
@@ -1009,7 +1107,7 @@
       "</div>";
   }
   function printSlip() {
-    var emp = findEmp(Number(el.slipEmp.value));
+    var emp = findEmp(el.slipEmp.value);
     if (!emp || !findSlip(emp.id, currentMonth)) { alert("ยังไม่มีสลิปของเดือนนี้ให้พิมพ์ — ทำเงินเดือนก่อน"); return; }
     window.print();
   }
@@ -1064,24 +1162,53 @@
     if (activeTab === "slip") { renderSlipSelect(); renderSlip(); }
   }
 
+  // ---------- auth ----------
+  function showLogin() {
+    el.appRoot.style.display = "none";
+    el.loginOverlay.style.display = "flex";
+    el.loginEmail.focus();
+  }
+  async function startApp(session) {
+    el.loginOverlay.style.display = "none";
+    el.appRoot.style.display = "";
+    el.userEmail.textContent = (session && session.user) ? session.user.email : "";
+    try { await loadAll(); } catch (e) { flash("โหลดข้อมูลไม่สำเร็จ: " + e.message); }
+    fillSettingsInputs();
+    renderAll();
+  }
+
   // ---------- events ----------
+  el.loginForm.addEventListener("submit", async function (ev) {
+    ev.preventDefault(); el.loginErr.textContent = ""; el.loginBtn.disabled = true;
+    try {
+      var r = await sb.auth.signInWithPassword({ email: el.loginEmail.value.trim(), password: el.loginPass.value });
+      if (r.error) throw r.error;
+      await startApp(r.data.session);
+    } catch (e) { el.loginErr.textContent = "เข้าสู่ระบบไม่สำเร็จ: " + (e.message || "ตรวจอีเมล/รหัสผ่าน"); }
+    finally { el.loginBtn.disabled = false; }
+  });
+  el.logoutBtn.addEventListener("click", async function () {
+    try { await sb.auth.signOut(); } catch (e) {}
+    location.reload();
+  });
+
   el.empForm.addEventListener("submit", submitEmployee);
   el.empCancelBtn.addEventListener("click", resetEmpForm);
   el.empBody.addEventListener("click", function (ev) {
     var edit = ev.target.closest("[data-edit]"), del = ev.target.closest("[data-del]");
-    if (edit) startEditEmployee(Number(edit.getAttribute("data-edit")));
-    else if (del) deleteEmployee(Number(del.getAttribute("data-del")));
+    if (edit) startEditEmployee(edit.getAttribute("data-edit"));
+    else if (del) deleteEmployee(del.getAttribute("data-del"));
   });
 
   el.payrollBody.addEventListener("input", function (ev) { if (ev.target.classList.contains("pay-input")) recalcAllRows(); });
-  el.payrollBody.addEventListener("click", function (ev) {
+  el.payrollBody.addEventListener("click", async function (ev) {
     var s = ev.target.closest("[data-slip]"); if (!s) return;
-    var id = Number(s.getAttribute("data-slip"));
+    var id = s.getAttribute("data-slip");
     if (!findSlip(id, currentMonth)) {
       if (!confirm("ยังไม่ได้บันทึกเงินเดือนเดือนนี้ ต้องการบันทึกตอนนี้แล้วดูสลิปเลยไหม?")) return;
-      savePayroll();
+      var ok = await savePayroll(); if (ok === false) return;
     }
-    switchTab("slip"); el.slipEmp.value = String(id); renderSlip();
+    switchTab("slip"); el.slipEmp.value = id; renderSlip();
   });
   el.savePayrollBtn.addEventListener("click", savePayroll);
   el.recalcScanBtn.addEventListener("click", recalcFromScan);
@@ -1124,13 +1251,18 @@
   });
 
   // ---------- init ----------
-  (function init() {
+  (async function init() {
     var savedTheme = "light";
     try { savedTheme = localStorage.getItem(THEME_KEY) || "light"; } catch (e) {}
     applyTheme(savedTheme);
     el.globalMonth.value = currentMonth;
     fillSettingsInputs();
-    renderAll();
+    if (!sb) { el.loginErr.textContent = "โหลดไลบรารี Supabase ไม่สำเร็จ — ตรวจการเชื่อมต่ออินเทอร์เน็ต"; return; }
+    try {
+      var s = await sb.auth.getSession();
+      if (s.data && s.data.session) { await startApp(s.data.session); }
+      else { showLogin(); }
+    } catch (e) { showLogin(); }
   })();
 })();
 </script>
