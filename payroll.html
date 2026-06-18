@@ -398,7 +398,7 @@
       <div id="previewWrap" style="display:none;">
         <div class="import-summary">
           <div>งวด/เดือนที่ตรวจพบ: <b id="prevMonth"></b></div>
-          <div>พนักงานในไฟล์: <b id="prevCount"></b> คน</div>
+          <div>พนักงานในไฟล์: <b id="prevCount"></b></div>
         </div>
         <div class="field check" style="margin-bottom:14px;">
           <input type="checkbox" id="addMode">
@@ -587,9 +587,14 @@
     });
   }
   function findEmp(id) { for (var i = 0; i < employees.length; i++) if (employees[i].id === id) return employees[i]; return null; }
+  function normCode(c) {
+    c = String(c == null ? "" : c).trim();
+    // รหัสตัวเลขตัด 0 นำหน้าออก ("02" = "2", "08" = "8") ส่วนรหัสที่มีตัวอักษรเทียบแบบ lowercase
+    return /^\d+$/.test(c) ? String(parseInt(c, 10)) : c.toLowerCase();
+  }
   function findEmpByCode(code) {
-    code = String(code).trim();
-    for (var i = 0; i < employees.length; i++) if (String(employees[i].code).trim() === code) return employees[i];
+    var n = normCode(code);
+    for (var i = 0; i < employees.length; i++) if (normCode(employees[i].code) === n) return employees[i];
     return null;
   }
   function findSlip(empId, month) {
@@ -896,10 +901,11 @@
   function renderImportPreview(parsed) {
     var codes = Object.keys(parsed.byCode).sort(function (a, b) { return Number(a) - Number(b); });
     el.prevMonth.textContent = monthLabel(parsed.month) + " (" + parsed.month + ")";
-    el.prevCount.textContent = codes.length;
+    var newCount = 0, existCount = 0;
     el.previewBody.innerHTML = codes.map(function (code) {
       var d = parsed.byCode[code];
       var emp = findEmpByCode(code);
+      if (emp) existCount++; else newCount++;
       var salary = emp ? emp.baseSalary : 0;
       var otH = d.otMin / 60;
       var otAmt = otAmount(otH, { baseSalary: salary });
@@ -915,6 +921,7 @@
         '<td class="num pos">' + (emp ? fmt(otAmt) : '<span class="hint">รอเงินเดือน</span>') + "</td>" +
       "</tr>";
     }).join("");
+    el.prevCount.textContent = codes.length + " คน · มีอยู่ " + existCount + " · สร้างใหม่ " + newCount;
     el.previewWrap.style.display = "block";
   }
 
