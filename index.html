@@ -108,6 +108,28 @@
   .dot.income { background: var(--income); }
   .dot.expense { background: var(--expense); }
 
+  .emp-filter { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .emp-filter input, .emp-filter select {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 9px 12px; font-size: .9rem; font-family: inherit;
+  }
+  .emp-filter input { flex: 1; min-width: 160px; }
+  .emp-filter select { min-width: 130px; cursor: pointer; }
+  .emp-filter input:focus, .emp-filter select:focus { outline: none; border-color: var(--brand, var(--income)); }
+
+  /* dashboard */
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .dash-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+  .dash-card .dlabel { font-size: .82rem; color: var(--muted); margin-bottom: 8px; }
+  .dash-card .dval { font-size: 1.45rem; font-weight: 700; word-break: break-all; }
+  .dash-bar { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+  .dash-bar h3 { margin: 0 0 14px; font-size: 1rem; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: .88rem; }
+  .bar-row .bname { width: 130px; flex-shrink: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-row .btrack { flex: 1; background: var(--bg); border-radius: 8px; height: 22px; overflow: hidden; }
+  .bar-row .bfill { height: 100%; background: var(--income); border-radius: 8px; min-width: 2px; }
+  .bar-row .bval { width: 95px; flex-shrink: 0; text-align: right; font-weight: 600; }
+
   .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
   .tabs button {
     background: var(--card); border: 1px solid var(--border); color: var(--muted);
@@ -308,14 +330,30 @@
   </section>
 
   <nav class="tabs">
-    <button type="button" class="active" data-tab="employees">👥 พนักงาน</button>
+    <button type="button" class="active" data-tab="dashboard">📊 ภาพรวม</button>
+    <button type="button" data-tab="employees">👥 พนักงาน</button>
     <button type="button" data-tab="import">📥 นำเข้าสแกนนิ้ว</button>
     <button type="button" data-tab="payroll">🧮 ทำเงินเดือน</button>
     <button type="button" data-tab="slip">🧾 สลิปเงินเดือน</button>
   </nav>
 
+  <!-- ============ TAB: ภาพรวม ============ -->
+  <section class="tab-panel" id="tab-dashboard">
+    <div class="dash-grid">
+      <div class="dash-card"><div class="dlabel">💵 ยอดจ่ายสุทธิรวม (เดือนนี้)</div><div class="dval" id="dashNet" style="color:var(--income);">0 ฿</div></div>
+      <div class="dash-card"><div class="dlabel">⏰ ค่า OT รวม (เดือนนี้)</div><div class="dval" id="dashOT">0 ฿</div></div>
+      <div class="dash-card"><div class="dlabel">🏥 ประกันสังคมรวม (เดือนนี้)</div><div class="dval" id="dashSS">0 ฿</div></div>
+      <div class="dash-card"><div class="dlabel">🧾 ทำเงินเดือนแล้ว (เดือนนี้)</div><div class="dval"><span id="dashSlipCount">0</span> / <span id="dashEmpTotal">0</span> คน</div></div>
+    </div>
+    <div class="dash-bar">
+      <h3>📊 เงินเดือนสุทธิรายคน (เดือนนี้)</h3>
+      <div id="dashBars"></div>
+      <div class="empty" id="dashEmpty" style="display:none;">ยังไม่มีข้อมูลเงินเดือนเดือนนี้ — ไปที่แท็บ “ทำเงินเดือน” แล้วบันทึกก่อน</div>
+    </div>
+  </section>
+
   <!-- ============ TAB: พนักงาน ============ -->
-  <section class="tab-panel" id="tab-employees">
+  <section class="tab-panel" id="tab-employees" hidden>
     <div class="grid">
       <div class="card">
         <h2 id="empFormTitle">➕ เพิ่มพนักงาน</h2>
@@ -362,6 +400,10 @@
 
       <div class="card">
         <h2>👥 รายชื่อพนักงาน <span class="hint" id="empCount"></span></h2>
+        <div class="emp-filter">
+          <input type="search" id="empSearch" placeholder="🔍 ค้นหา ชื่อ / รหัส / ตำแหน่ง...">
+          <select id="empDeptFilter"><option value="">ทุกแผนก</option></select>
+        </div>
         <div class="table-scroll">
           <table>
             <thead>
@@ -551,7 +593,7 @@
   var settings = mergeSettings({});
   var editingEmpId = null;
   var currentMonth = todayStr().slice(0, 7);
-  var activeTab = "employees";
+  var activeTab = "dashboard";
   var lastParsed = null;
 
   // ---------- elements ----------
@@ -561,6 +603,10 @@
     loginOverlay: $("loginOverlay"), loginForm: $("loginForm"), loginEmail: $("loginEmail"),
     loginPass: $("loginPass"), loginBtn: $("loginBtn"), loginErr: $("loginErr"),
     userEmail: $("userEmail"), logoutBtn: $("logoutBtn"),
+    empSearch: $("empSearch"), empDeptFilter: $("empDeptFilter"),
+    dashNet: $("dashNet"), dashOT: $("dashOT"), dashSS: $("dashSS"),
+    dashSlipCount: $("dashSlipCount"), dashEmpTotal: $("dashEmpTotal"),
+    dashBars: $("dashBars"), dashEmpty: $("dashEmpty"),
     globalMonth: $("globalMonth"), themeBtn: $("themeBtn"),
     sumCount: $("sumCount"), sumNet: $("sumNet"), sumDeduct: $("sumDeduct"),
     empForm: $("empForm"), empFormTitle: $("empFormTitle"),
@@ -749,14 +795,68 @@
   function slipDeduct(s) { return (s.socialSecurity || 0) + (s.leaveDeduct || 0); }
   function slipNet(s) { return slipGross(s) - slipDeduct(s); }
 
+  // ---------- dashboard ----------
+  function renderDashboard() {
+    var monthSlips = slips.filter(function (s) { return s.month === currentMonth; });
+    var net = 0, ot = 0, ss = 0;
+    monthSlips.forEach(function (s) { net += slipNet(s); ot += (s.ot || 0); ss += (s.socialSecurity || 0); });
+    el.dashNet.textContent = fmt(net);
+    el.dashOT.textContent = fmt(ot);
+    el.dashSS.textContent = fmt(ss);
+    el.dashSlipCount.textContent = monthSlips.length;
+    el.dashEmpTotal.textContent = employees.length;
+
+    // กราฟแท่ง: เงินเดือนสุทธิรายคน เรียงมาก→น้อย
+    var rows = monthSlips.map(function (s) {
+      var emp = findEmp(s.employeeId);
+      return { name: emp ? (emp.name || ("รหัส " + emp.code)) : "—", net: slipNet(s) };
+    }).filter(function (r) { return r.net > 0; }).sort(function (a, b) { return b.net - a.net; });
+
+    if (rows.length === 0) { el.dashBars.innerHTML = ""; el.dashEmpty.style.display = "block"; return; }
+    el.dashEmpty.style.display = "none";
+    var max = rows[0].net || 1;
+    el.dashBars.innerHTML = rows.map(function (r) {
+      var pct = Math.max(2, Math.round(r.net / max * 100));
+      return '<div class="bar-row">' +
+        '<div class="bname">' + escapeHtml(r.name) + "</div>" +
+        '<div class="btrack"><div class="bfill" style="width:' + pct + '%;"></div></div>' +
+        '<div class="bval">' + fmt(r.net) + "</div>" +
+      "</div>";
+    }).join("");
+  }
+
   // ---------- employees ----------
+  function fillDeptFilter() {
+    var cur = el.empDeptFilter.value;
+    var depts = [];
+    employees.forEach(function (e) {
+      var d = (e.department || "").trim();
+      if (d && depts.indexOf(d) === -1) depts.push(d);
+    });
+    depts.sort(function (a, b) { return a.localeCompare(b); });
+    el.empDeptFilter.innerHTML = '<option value="">ทุกแผนก</option>' +
+      depts.map(function (d) { return '<option value="' + escapeHtml(d) + '">' + escapeHtml(d) + "</option>"; }).join("");
+    if (depts.indexOf(cur) !== -1) el.empDeptFilter.value = cur;
+  }
   function renderEmployees() {
     el.empCount.textContent = employees.length ? "(" + employees.length + " คน)" : "";
+    fillDeptFilter();
     if (employees.length === 0) { el.empBody.innerHTML = ""; el.empEmpty.style.display = "block"; return; }
     el.empEmpty.style.display = "none";
-    var list = employees.slice().sort(function (a, b) {
+    var q = (el.empSearch.value || "").trim().toLowerCase();
+    var dept = el.empDeptFilter.value || "";
+    var list = employees.slice().filter(function (e) {
+      if (dept && (e.department || "").trim() !== dept) return false;
+      if (!q) return true;
+      var hay = ((e.code || "") + " " + (e.name || "") + " " + (e.position || "") + " " + (e.department || "")).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    }).sort(function (a, b) {
       return (num(a.code) - num(b.code)) || String(a.code).localeCompare(String(b.code)) || a.name.localeCompare(b.name);
     });
+    if (list.length === 0) {
+      el.empBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:18px;">ไม่พบพนักงานที่ตรงกับการค้นหา</td></tr>';
+      return;
+    }
     el.empBody.innerHTML = list.map(function (e) {
       return "<tr>" +
         "<td>" + escapeHtml(e.code || "—") + "</td>" +
@@ -1121,7 +1221,8 @@
   function switchTab(tab) {
     activeTab = tab;
     document.querySelectorAll(".tabs button").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-tab") === tab); });
-    ["employees", "import", "payroll", "slip"].forEach(function (t) { $("tab-" + t).hidden = (t !== tab); });
+    ["dashboard", "employees", "import", "payroll", "slip"].forEach(function (t) { $("tab-" + t).hidden = (t !== tab); });
+    if (tab === "dashboard") renderDashboard();
     if (tab === "payroll") renderPayroll();
     if (tab === "slip") { renderSlipSelect(); renderSlip(); }
   }
@@ -1163,6 +1264,7 @@
   // ---------- render all ----------
   function renderAll() {
     renderSummary(); renderEmployees();
+    if (activeTab === "dashboard") renderDashboard();
     if (activeTab === "payroll") renderPayroll();
     if (activeTab === "slip") { renderSlipSelect(); renderSlip(); }
   }
@@ -1199,6 +1301,8 @@
 
   el.empForm.addEventListener("submit", submitEmployee);
   el.empCancelBtn.addEventListener("click", resetEmpForm);
+  el.empSearch.addEventListener("input", renderEmployees);
+  el.empDeptFilter.addEventListener("change", renderEmployees);
   el.empBody.addEventListener("click", function (ev) {
     var edit = ev.target.closest("[data-edit]"), del = ev.target.closest("[data-del]");
     if (edit) startEditEmployee(edit.getAttribute("data-edit"));
