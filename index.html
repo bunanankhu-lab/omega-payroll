@@ -528,6 +528,11 @@
   var SUPABASE_KEY = "sb_publishable_uIljS3UseTALT_PbU-F1pg_WcfQoe1g";
   var THEME_KEY = "omega_payroll_theme";
 
+  // ⚠️ โหมดพัฒนา: ข้ามหน้าล็อกอินชั่วคราว (เปิดแอปโดยไม่ต้องล็อกอิน)
+  // เปลี่ยนเป็น false เมื่อพัฒนาเสร็จ เพื่อเปิดระบบล็อกอินกลับมา (ปลอดภัย)
+  // ⚠️ ตอนนี้ true = ใครมีลิงก์ก็เข้าได้ ต้องปิด RLS ใน Supabase ควบคู่ด้วย
+  var DEV_BYPASS_LOGIN = true;
+
   var SS_RATE = 0.05, SS_MAX = 750;
   var THAI_MONTHS = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
                      "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
@@ -1258,6 +1263,8 @@
     el.globalMonth.value = currentMonth;
     fillSettingsInputs();
     if (!sb) { el.loginErr.textContent = "โหลดไลบรารี Supabase ไม่สำเร็จ — ตรวจการเชื่อมต่ออินเทอร์เน็ต"; return; }
+    // โหมดพัฒนา: ข้ามล็อกอิน เข้าแอปเลย
+    if (DEV_BYPASS_LOGIN) { await startApp(null); return; }
     try {
       var s = await sb.auth.getSession();
       if (s.data && s.data.session) { await startApp(s.data.session); }
