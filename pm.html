@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบเตือนรอบ PM · บริษัทโอเมก้าอีสาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F2F8FB;            /* ขาว-ฟ้าน้ำแข็ง */
+    --card: #ffffff;
+    --text: #17303B;
+    --muted: #6B8290;
+    --border: #DCEAF1;
+    --primary: #2B7A9E;       /* ฟ้าน้ำแข็งเข้ม */
+    --primary-soft: #E3F2F8;
+    --red: #C0392B;
+    --red-bg: #FBEAE8;
+    --yellow: #B7791F;
+    --yellow-bg: #FBF3E2;
+    --green: #2F7D4F;
+    --green-bg: #E8F5EE;
+    --radius: 16px;
+    --shadow: 0 1px 3px rgba(23,48,59,.06), 0 6px 20px rgba(43,122,158,.08);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; font-family: "Noto Sans Thai", "Segoe UI", Tahoma, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+    min-height: 100vh;
+  }
+  .app { max-width: 520px; margin: 0 auto; padding: 16px 14px 110px; }
+
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  header.top h1 { font-size: 1.25rem; margin: 0; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+  header.top .home-link { font-size: .8rem; color: var(--muted); text-decoration: none; border: 1px solid var(--border); background: var(--card); padding: 6px 12px; border-radius: 999px; }
+
+  /* แถบสรุป 3 ช่อง */
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+  .sum-box {
+    border: 2px solid transparent; border-radius: 14px; padding: 10px 6px; text-align: center;
+    cursor: pointer; box-shadow: var(--shadow); transition: transform .1s, border-color .15s;
+    background: var(--card); font-family: inherit;
+  }
+  .sum-box:active { transform: scale(.97); }
+  .sum-box .n { font-size: 1.45rem; font-weight: 700; line-height: 1.2; }
+  .sum-box .l { font-size: .72rem; color: var(--muted); }
+  .sum-box.red .n { color: var(--red); }
+  .sum-box.yellow .n { color: var(--yellow); }
+  .sum-box.green .n { color: var(--green); }
+  .sum-box.red.active { border-color: var(--red); background: var(--red-bg); }
+  .sum-box.yellow.active { border-color: var(--yellow); background: var(--yellow-bg); }
+  .sum-box.green.active { border-color: var(--green); background: var(--green-bg); }
+
+  .search-wrap { position: relative; margin-bottom: 12px; }
+  .search-wrap input {
+    width: 100%; padding: 12px 14px 12px 40px; border: 1px solid var(--border); border-radius: 999px;
+    font-family: inherit; font-size: .95rem; background: var(--card); color: var(--text); box-shadow: var(--shadow);
+  }
+  .search-wrap input:focus { outline: none; border-color: var(--primary); }
+  .search-wrap .ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+
+  /* การ์ดลูกค้า */
+  .cust-card {
+    display: flex; align-items: center; gap: 10px; background: var(--card);
+    border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; box-shadow: var(--shadow);
+    border-left: 5px solid var(--green); cursor: pointer; transition: transform .1s;
+  }
+  .cust-card:active { transform: scale(.985); }
+  .cust-card.red { border-left-color: var(--red); }
+  .cust-card.yellow { border-left-color: var(--yellow); }
+  .cust-card.green { border-left-color: var(--green); }
+  .cust-card .info { flex: 1; min-width: 0; }
+  .cust-card .name { font-weight: 600; font-size: .98rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cust-card .phone { font-size: .84rem; color: var(--primary); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .cust-card .phone:active { opacity: .6; }
+  .cust-card .days { flex-shrink: 0; text-align: right; }
+  .cust-card .days .dn { font-size: 1.15rem; font-weight: 700; line-height: 1.1; }
+  .cust-card .days .dl { font-size: .68rem; color: var(--muted); }
+  .cust-card.red .days .dn { color: var(--red); }
+  .cust-card.yellow .days .dn { color: var(--yellow); }
+  .cust-card.green .days .dn { color: var(--green); }
+
+  .empty { text-align: center; color: var(--muted); padding: 48px 16px; font-size: .95rem; }
+  .empty .big { font-size: 2.4rem; margin-bottom: 8px; }
+
+  /* ปุ่มลอย */
+  .fab {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 20;
+    background: var(--primary); color: #fff; border: none; border-radius: 999px;
+    padding: 15px 28px; font-size: 1rem; font-weight: 600; font-family: inherit; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(43,122,158,.45);
+  }
+  .fab:active { transform: translateX(-50%) scale(.96); }
+
+  /* หน้ารายละเอียด */
+  .back-btn {
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 16px; font-family: inherit; font-size: .9rem; color: var(--text);
+    cursor: pointer; margin-bottom: 14px; box-shadow: var(--shadow);
+  }
+  .detail-card { background: var(--card); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); margin-bottom: 12px; }
+  .detail-card h2 { margin: 0 0 2px; font-size: 1.25rem; }
+  .detail-card .sub { color: var(--muted); font-size: .88rem; }
+  .count-badge {
+    display: inline-block; margin-top: 10px; padding: 7px 16px; border-radius: 999px;
+    font-weight: 700; font-size: .95rem;
+  }
+  .count-badge.red { background: var(--red-bg); color: var(--red); }
+  .count-badge.yellow { background: var(--yellow-bg); color: var(--yellow); }
+  .count-badge.green { background: var(--green-bg); color: var(--green); }
+
+  .progress-wrap { margin-top: 14px; }
+  .progress-label { display: flex; justify-content: space-between; font-size: .78rem; color: var(--muted); margin-bottom: 5px; }
+  .progress-track { background: var(--bg); border: 1px solid var(--border); border-radius: 999px; height: 14px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 999px; background: var(--green); transition: width .4s; min-width: 4px; }
+  .progress-fill.red { background: var(--red); }
+  .progress-fill.yellow { background: var(--yellow); }
+  .progress-fill.green { background: var(--green); }
+
+  .call-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--primary); color: #fff; text-decoration: none; border-radius: 14px;
+    padding: 15px; font-size: 1.05rem; font-weight: 700; margin-bottom: 12px;
+    box-shadow: 0 4px 14px rgba(43,122,158,.35);
+  }
+  .call-btn:active { opacity: .85; }
+
+  table.info { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  table.info td { padding: 9px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.info tr:last-child td { border-bottom: none; }
+  table.info td.k { color: var(--muted); width: 40%; padding-right: 10px; }
+
+  .note-box { background: var(--primary-soft); border-radius: 12px; padding: 12px 14px; font-size: .9rem; margin-top: 4px; white-space: pre-wrap; }
+
+  .hist-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+  .hist-item:last-child { border-bottom: none; }
+  .hist-item .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); margin-top: 6px; flex-shrink: 0; }
+  .hist-item .d { font-weight: 600; }
+  .hist-item .n { color: var(--muted); white-space: pre-wrap; }
+  .hist-empty { color: var(--muted); font-size: .88rem; padding: 8px 0; }
+
+  .btn-row { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .btn {
+    border: none; border-radius: 14px; padding: 14px; font-size: 1rem; font-weight: 600;
+    font-family: inherit; cursor: pointer; width: 100%;
+  }
+  .btn:active { opacity: .85; }
+  .btn.primary { background: var(--green); color: #fff; box-shadow: 0 4px 14px rgba(47,125,79,.3); }
+  .btn.secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .btn.danger { background: var(--card); color: var(--red); border: 1px solid var(--red-bg); }
+
+  /* bottom sheet */
+  .sheet-overlay {
+    position: fixed; inset: 0; background: rgba(23,48,59,.45); z-index: 30;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .sheet-overlay.show { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 31;
+    background: var(--card); border-radius: 22px 22px 0 0; padding: 18px 18px 26px;
+    max-width: 520px; margin: 0 auto; max-height: 88vh; overflow-y: auto;
+    transform: translateY(105%); transition: transform .25s cubic-bezier(.22,1,.36,1);
+    box-shadow: 0 -8px 30px rgba(23,48,59,.2);
+  }
+  .sheet.show { transform: translateY(0); }
+  .sheet .grip { width: 44px; height: 5px; background: var(--border); border-radius: 99px; margin: 0 auto 14px; }
+  .sheet h3 { margin: 0 0 14px; font-size: 1.1rem; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: .82rem; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 12px 13px; border: 1px solid var(--border); border-radius: 12px;
+    font-family: inherit; font-size: .95rem; background: var(--bg); color: var(--text);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--primary); background: #fff; }
+  .field textarea { resize: vertical; min-height: 60px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cycle-row { display: flex; gap: 8px; align-items: center; }
+  .cycle-row input { flex: 1; }
+  .cycle-quick {
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    border-radius: 10px; padding: 11px 14px; font-family: inherit; font-size: .9rem; font-weight: 600; cursor: pointer;
+    white-space: nowrap;
+  }
+  .cycle-quick.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .err { color: var(--red); font-size: .82rem; min-height: 18px; margin-top: 4px; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%) translateY(16px);
+    background: var(--text); color: #fff; padding: 11px 20px; border-radius: 999px;
+    font-size: .9rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.3);
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 50;
+    max-width: 90vw; text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ==================== หน้ารายชื่อ ==================== -->
+  <div id="pageList">
+    <header class="top">
+      <h1>🔧 เตือนรอบ PM</h1>
+      <a class="home-link" href="index.html">หน้าหลัก</a>
+    </header>
+
+    <div class="summary">
+      <button type="button" class="sum-box red" id="sumRed">
+        <div class="n" id="sumRedN">0</div>
+        <div class="l">เกินกำหนด</div>
+      </button>
+      <button type="button" class="sum-box yellow" id="sumYellow">
+        <div class="n" id="sumYellowN">0</div>
+        <div class="l">ใกล้ครบใน 7 วัน</div>
+      </button>
+      <button type="button" class="sum-box green" id="sumGreen">
+        <div class="n" id="sumGreenN">0</div>
+        <div class="l">ปกติ</div>
+      </button>
+    </div>
+
+    <div class="search-wrap">
+      <span class="ico">🔍</span>
+      <input id="searchInput" placeholder="ค้นหาชื่อ เบอร์โทร หรือรุ่นเครื่อง...">
+    </div>
+
+    <div id="custList"></div>
+    <div class="empty" id="listEmpty" hidden>
+      <div class="big">🧊</div>
+      ยังไม่มีลูกค้าในระบบ<br>กดปุ่ม “+ เพิ่มลูกค้า” เพื่อเริ่มต้น
+    </div>
+  </div>
+
+  <!-- ==================== หน้ารายละเอียด ==================== -->
+  <div id="pageDetail" hidden>
+    <button type="button" class="back-btn" id="backBtn">← กลับหน้ารายชื่อ</button>
+
+    <div class="detail-card">
+      <h2 id="dName"></h2>
+      <div class="sub" id="dTypeModel"></div>
+      <span class="count-badge" id="dBadge"></span>
+      <div class="progress-wrap">
+        <div class="progress-label"><span id="dProgText"></span><span id="dProgPct"></span></div>
+        <div class="progress-track"><div class="progress-fill" id="dProgFill"></div></div>
+      </div>
+    </div>
+
+    <a class="call-btn" id="dCallBtn" href="#">📞 โทรหาลูกค้า</a>
+
+    <div class="detail-card">
+      <table class="info">
+        <tr><td class="k">ที่อยู่</td><td id="dAddress"></td></tr>
+        <tr><td class="k">ประเภทเครื่อง</td><td id="dType"></td></tr>
+        <tr><td class="k">ยี่ห้อ/รุ่น</td><td id="dModel"></td></tr>
+        <tr><td class="k">วัน PM ล่าสุด</td><td id="dLastPM"></td></tr>
+        <tr><td class="k">วันครบรอบถัดไป</td><td id="dNextDue"></td></tr>
+        <tr><td class="k">รอบ PM</td><td id="dCycle"></td></tr>
+      </table>
+      <div class="note-box" id="dNote" hidden></div>
+    </div>
+
+    <div class="detail-card">
+      <h3 style="margin:0 0 6px;font-size:1rem">📜 ประวัติการทำ PM</h3>
+      <div id="dHistory"></div>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="btn primary" id="pmDoneBtn">✓ ทำ PM วันนี้แล้ว</button>
+      <button type="button" class="btn secondary" id="editBtn">✏️ แก้ไขข้อมูล</button>
+      <button type="button" class="btn danger" id="deleteBtn">🗑 ลบลูกค้า</button>
+    </div>
+  </div>
+</div>
+
+<button type="button" class="fab" id="fabAdd">＋ เพิ่มลูกค้า</button>
+
+<!-- ==================== ฟอร์มเพิ่ม/แก้ไขลูกค้า ==================== -->
+<div class="sheet-overlay" id="custOverlay"></div>
+<div class="sheet" id="custSheet">
+  <div class="grip"></div>
+  <h3 id="custSheetTitle">เพิ่มลูกค้าใหม่</h3>
+  <form id="custForm">
+    <div class="field">
+      <label for="fName">ชื่อลูกค้า / ร้าน *</label>
+      <input id="fName" required placeholder="เช่น ร้านครัวคุณหญิง">
+    </div>
+    <div class="field">
+      <label for="fPhone">เบอร์โทร</label>
+      <input id="fPhone" type="tel" placeholder="เช่น 081-234-5678">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="fType">ประเภทเครื่อง</label>
+        <select id="fType">
+          <option value="เครื่องล้างจาน">เครื่องล้างจาน</option>
+          <option value="เครื่องทำน้ำแข็ง">เครื่องทำน้ำแข็ง</option>
+          <option value="อื่นๆ">อื่นๆ</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="fModel">ยี่ห้อ/รุ่น</label>
+        <input id="fModel" placeholder="เช่น Hobart AM15">
+      </div>
+    </div>
+    <div class="field">
+      <label for="fAddress">ที่อยู่</label>
+      <textarea id="fAddress" rows="2" placeholder="ที่ตั้งร้าน / จุดสังเกต"></textarea>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="fLastPM">วัน PM ล่าสุด</label>
+        <input id="fLastPM" type="date">
+      </div>
+      <div class="field">
+        <label for="fCycle">รอบ PM (วัน)</label>
+        <div class="cycle-row">
+          <input id="fCycle" type="number" min="1" max="365" value="45">
+          <button type="button" class="cycle-quick" data-cycle="45">45</button>
+          <button type="button" class="cycle-quick" data-cycle="60">60</button>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="fNote">หมายเหตุประจำลูกค้า</label>
+      <textarea id="fNote" rows="2" placeholder="เช่น เข้าได้เฉพาะช่วงบ่าย, มีสุนัข"></textarea>
+    </div>
+    <div class="err" id="fErr"></div>
+    <button type="submit" class="btn primary" style="background:var(--primary)">บันทึก</button>
+    <button type="button" class="btn secondary" id="custCancelBtn" style="margin-top:8px">ยกเลิก</button>
+  </form>
+</div>
+
+<!-- ==================== ฟอร์มบันทึก PM ==================== -->
+<div class="sheet-overlay" id="pmOverlay"></div>
+<div class="sheet" id="pmSheet">
+  <div class="grip"></div>
+  <h3>บันทึกการทำ PM</h3>
+  <form id="pmForm">
+    <div class="field">
+      <label for="pmDate">วันที่ทำ</label>
+      <input id="pmDate" type="date">
+    </div>
+    <div class="field">
+      <label for="pmNote">งานที่ทำ / อะไหล่ที่เปลี่ยน (ไม่บังคับ)</label>
+      <textarea id="pmNote" rows="3" placeholder="เช่น ล้างหัวฉีด เปลี่ยนไส้กรอง เติมน้ำยา"></textarea>
+    </div>
+    <button type="submit" class="btn primary">✓ บันทึก แล้วเริ่มนับรอบใหม่</button>
+    <button type="button" class="btn secondary" id="pmCancelBtn" style="margin-top:8px">ยกเลิก</button>
+  </form>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE_KEY = "omega_pm_customers";
+
+  // ---------- storage ----------
+  function loadCustomers() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      var data = raw ? JSON.parse(raw) : [];
+      return Array.isArray(data) ? data : [];
+    } catch (e) { return []; }
+  }
+  function saveCustomers() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(customers)); }
+    catch (e) { flash("⚠️ บันทึกข้อมูลไม่สำเร็จ (พื้นที่เก็บเต็ม?)"); }
+  }
+
+  // ---------- state ----------
+  var customers = loadCustomers();
+  var statusFilter = "";      // "" | red | yellow | green
+  var currentId = null;       // ลูกค้าที่เปิดหน้ารายละเอียดอยู่
+  var editingId = null;       // ลูกค้าที่กำลังแก้ไขในฟอร์ม (null = เพิ่มใหม่)
+
+  // ---------- elements ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    pageList: $("pageList"), pageDetail: $("pageDetail"),
+    sumRed: $("sumRed"), sumYellow: $("sumYellow"), sumGreen: $("sumGreen"),
+    sumRedN: $("sumRedN"), sumYellowN: $("sumYellowN"), sumGreenN: $("sumGreenN"),
+    searchInput: $("searchInput"), custList: $("custList"), listEmpty: $("listEmpty"),
+    fabAdd: $("fabAdd"), backBtn: $("backBtn"),
+    dName: $("dName"), dTypeModel: $("dTypeModel"), dBadge: $("dBadge"),
+    dProgText: $("dProgText"), dProgPct: $("dProgPct"), dProgFill: $("dProgFill"),
+    dCallBtn: $("dCallBtn"), dAddress: $("dAddress"), dType: $("dType"), dModel: $("dModel"),
+    dLastPM: $("dLastPM"), dNextDue: $("dNextDue"), dCycle: $("dCycle"), dNote: $("dNote"),
+    dHistory: $("dHistory"),
+    pmDoneBtn: $("pmDoneBtn"), editBtn: $("editBtn"), deleteBtn: $("deleteBtn"),
+    custOverlay: $("custOverlay"), custSheet: $("custSheet"), custSheetTitle: $("custSheetTitle"),
+    custForm: $("custForm"), fName: $("fName"), fPhone: $("fPhone"), fType: $("fType"),
+    fModel: $("fModel"), fAddress: $("fAddress"), fLastPM: $("fLastPM"), fCycle: $("fCycle"),
+    fNote: $("fNote"), fErr: $("fErr"), custCancelBtn: $("custCancelBtn"),
+    pmOverlay: $("pmOverlay"), pmSheet: $("pmSheet"), pmForm: $("pmForm"),
+    pmDate: $("pmDate"), pmNote: $("pmNote"), pmCancelBtn: $("pmCancelBtn"),
+    toast: $("toast")
+  };
+
+  // ---------- helpers ----------
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function fmtThai(dateStr) {
+    if (!dateStr) return "-";
+    var d = new Date(dateStr + "T00:00:00");
+    if (isNaN(d)) return "-";
+    return d.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  }
+  function addDays(dateStr, n) {
+    var d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  // วันครบรอบ = วัน PM ล่าสุด + รอบ · วันที่เหลือ = วันครบรอบ − วันนี้
+  function nextDue(c) { return addDays(c.lastPM, Number(c.cycle) || 0); }
+  function daysLeft(c) {
+    var due = new Date(nextDue(c) + "T00:00:00");
+    var today = new Date(todayStr() + "T00:00:00");
+    return Math.round((due - today) / 86400000);
+  }
+  // ติดลบ = เกินกำหนด · 0–7 = ใกล้ครบ · >7 = ปกติ
+  function statusOf(c) {
+    var d = daysLeft(c);
+    if (d < 0) return "red";
+    if (d <= 7) return "yellow";
+    return "green";
+  }
+  function daysText(c) {
+    var d = daysLeft(c);
+    if (d < 0) return "เกิน " + Math.abs(d) + " วัน";
+    if (d === 0) return "ครบวันนี้";
+    return "อีก " + d + " วัน";
+  }
+  function custById(id) { return customers.find(function (c) { return c.id === id; }) || null; }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  var toastTimer = null;
+  function flash(msg) {
+    el.toast.textContent = msg;
+    el.toast.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.toast.classList.remove("show"); }, 2400);
+  }
+
+  // ---------- หน้ารายชื่อ ----------
+  function renderList() {
+    var counts = { red: 0, yellow: 0, green: 0 };
+    customers.forEach(function (c) { counts[statusOf(c)]++; });
+    el.sumRedN.textContent = counts.red;
+    el.sumYellowN.textContent = counts.yellow;
+    el.sumGreenN.textContent = counts.green;
+    el.sumRed.classList.toggle("active", statusFilter === "red");
+    el.sumYellow.classList.toggle("active", statusFilter === "yellow");
+    el.sumGreen.classList.toggle("active", statusFilter === "green");
+
+    var q = el.searchInput.value.trim().toLowerCase();
+    var list = customers.filter(function (c) {
+      var hitQ = !q || [c.name, c.phone, c.model].some(function (v) {
+        return String(v || "").toLowerCase().indexOf(q) !== -1;
+      });
+      var hitS = !statusFilter || statusOf(c) === statusFilter;
+      return hitQ && hitS;
+    });
+    // ใกล้ครบ/เกินกำหนดมากสุดอยู่บนสุด
+    list.sort(function (a, b) { return daysLeft(a) - daysLeft(b); });
+
+    el.listEmpty.hidden = !(customers.length === 0);
+    el.custList.innerHTML = list.map(function (c) {
+      var st = statusOf(c);
+      var d = daysLeft(c);
+      var dn = d < 0 ? "-" + Math.abs(d) : String(d);
+      var dl = d < 0 ? "เกินกำหนด (วัน)" : d === 0 ? "ครบวันนี้" : "เหลือ (วัน)";
+      return '<div class="cust-card ' + st + '" data-id="' + c.id + '">' +
+        '<div class="info">' +
+          '<div class="name">' + esc(c.name) + "</div>" +
+          (c.phone
+            ? '<a class="phone" href="tel:' + esc(c.phone.replace(/[^0-9+]/g, "")) + '" onclick="event.stopPropagation()">📞 ' + esc(c.phone) + "</a>"
+            : '<span class="phone" style="color:var(--muted)">ไม่มีเบอร์โทร</span>') +
+        "</div>" +
+        '<div class="days"><div class="dn">' + dn + '</div><div class="dl">' + dl + "</div></div>" +
+        "</div>";
+    }).join("");
+    if (customers.length > 0 && list.length === 0) {
+      el.custList.innerHTML = '<div class="empty">ไม่พบลูกค้าที่ตรงเงื่อนไข</div>';
+    }
+  }
+
+  el.custList.addEventListener("click", function (e) {
+    var card = e.target.closest ? e.target.closest(".cust-card") : null;
+    if (card) openDetail(card.getAttribute("data-id"));
+  });
+  el.searchInput.addEventListener("input", renderList);
+  [["sumRed", "red"], ["sumYellow", "yellow"], ["sumGreen", "green"]].forEach(function (pair) {
+    el[pair[0]].addEventListener("click", function () {
+      statusFilter = statusFilter === pair[1] ? "" : pair[1];
+      renderList();
+    });
+  });
+
+  // ---------- หน้ารายละเอียด ----------
+  function openDetail(id) {
+    var c = custById(id);
+    if (!c) return;
+    currentId = id;
+    var st = statusOf(c);
+    var cyc = Number(c.cycle) || 0;
+
+    el.dName.textContent = c.name;
+    el.dTypeModel.textContent = [c.type, c.model].filter(Boolean).join(" · ") || "-";
+    el.dBadge.textContent = st === "red" ? "⚠️ " + daysText(c) : st === "yellow" ? "⏳ " + daysText(c) : "✅ " + daysText(c);
+    el.dBadge.className = "count-badge " + st;
+
+    // progress: ใช้รอบไปแล้วกี่ %
+    var used = cyc - daysLeft(c);
+    var pct = cyc > 0 ? Math.round(used / cyc * 100) : 0;
+    var pctClamped = Math.max(0, Math.min(100, pct));
+    el.dProgText.textContent = "ใช้รอบไปแล้ว " + Math.max(0, used) + "/" + cyc + " วัน";
+    el.dProgPct.textContent = pct + "%";
+    el.dProgFill.style.width = pctClamped + "%";
+    el.dProgFill.className = "progress-fill " + st;
+
+    if (c.phone) {
+      el.dCallBtn.hidden = false;
+      el.dCallBtn.href = "tel:" + c.phone.replace(/[^0-9+]/g, "");
+      el.dCallBtn.textContent = "📞 โทร " + c.phone;
+    } else {
+      el.dCallBtn.hidden = true;
+    }
+
+    el.dAddress.textContent = c.address || "-";
+    el.dType.textContent = c.type || "-";
+    el.dModel.textContent = c.model || "-";
+    el.dLastPM.textContent = fmtThai(c.lastPM);
+    el.dNextDue.textContent = fmtThai(nextDue(c));
+    el.dCycle.textContent = cyc + " วัน";
+    el.dNote.hidden = !c.note;
+    el.dNote.textContent = c.note ? "📝 " + c.note : "";
+
+    var hist = (c.history || []).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    el.dHistory.innerHTML = hist.length === 0
+      ? '<div class="hist-empty">ยังไม่มีประวัติการทำ PM</div>'
+      : hist.map(function (h) {
+          return '<div class="hist-item"><div class="dot"></div><div>' +
+            '<div class="d">' + fmtThai(h.date) + "</div>" +
+            (h.note ? '<div class="n">' + esc(h.note) + "</div>" : "") +
+            "</div></div>";
+        }).join("");
+
+    el.pageList.hidden = true;
+    el.fabAdd.hidden = true;
+    el.pageDetail.hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  function backToList() {
+    currentId = null;
+    el.pageDetail.hidden = true;
+    el.pageList.hidden = false;
+    el.fabAdd.hidden = false;
+    renderList();
+  }
+  el.backBtn.addEventListener("click", backToList);
+
+  // ---------- ฟอร์มเพิ่ม/แก้ไข ----------
+  function openCustSheet(editId) {
+    editingId = editId || null;
+    var c = editId ? custById(editId) : null;
+    el.custSheetTitle.textContent = c ? "แก้ไขข้อมูลลูกค้า" : "เพิ่มลูกค้าใหม่";
+    el.fName.value = c ? c.name : "";
+    el.fPhone.value = c ? c.phone : "";
+    el.fType.value = c ? c.type : "เครื่องล้างจาน";
+    el.fModel.value = c ? c.model : "";
+    el.fAddress.value = c ? c.address : "";
+    el.fLastPM.value = c ? c.lastPM : todayStr();
+    el.fCycle.value = c ? c.cycle : 45;
+    el.fNote.value = c ? c.note : "";
+    el.fErr.textContent = "";
+    updateCycleQuick();
+    el.custOverlay.classList.add("show");
+    el.custSheet.classList.add("show");
+  }
+  function closeCustSheet() {
+    el.custOverlay.classList.remove("show");
+    el.custSheet.classList.remove("show");
+  }
+  function updateCycleQuick() {
+    document.querySelectorAll(".cycle-quick").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-cycle") === String(el.fCycle.value));
+    });
+  }
+  document.querySelectorAll(".cycle-quick").forEach(function (b) {
+    b.addEventListener("click", function () {
+      el.fCycle.value = b.getAttribute("data-cycle");
+      updateCycleQuick();
+    });
+  });
+  el.fCycle.addEventListener("input", updateCycleQuick);
+
+  el.fabAdd.addEventListener("click", function () { openCustSheet(null); });
+  el.editBtn.addEventListener("click", function () { if (currentId) openCustSheet(currentId); });
+  el.custCancelBtn.addEventListener("click", closeCustSheet);
+  el.custOverlay.addEventListener("click", closeCustSheet);
+
+  el.custForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = el.fName.value.trim();
+    if (!name) { el.fErr.textContent = "กรุณาระบุชื่อลูกค้า/ร้าน"; return; }
+    var cycle = parseInt(el.fCycle.value, 10);
+    if (!cycle || cycle < 1) { el.fErr.textContent = "รอบ PM ต้องเป็นจำนวนวันอย่างน้อย 1 วัน"; return; }
+    var data = {
+      name: name,
+      phone: el.fPhone.value.trim(),
+      type: el.fType.value,
+      model: el.fModel.value.trim(),
+      address: el.fAddress.value.trim(),
+      lastPM: el.fLastPM.value || todayStr(),
+      cycle: cycle,
+      note: el.fNote.value.trim()
+    };
+    if (editingId) {
+      var c = custById(editingId);
+      if (c) Object.assign(c, data);
+      flash("✅ แก้ไขข้อมูลแล้ว");
+    } else {
+      data.id = newId();
+      data.history = [];
+      customers.push(data);
+      flash("✅ เพิ่มลูกค้าแล้ว");
+    }
+    saveCustomers();
+    closeCustSheet();
+    if (currentId) openDetail(currentId); else renderList();
+  });
+
+  // ---------- ฟอร์มบันทึก PM ----------
+  function openPmSheet() {
+    el.pmDate.value = todayStr();
+    el.pmNote.value = "";
+    el.pmOverlay.classList.add("show");
+    el.pmSheet.classList.add("show");
+  }
+  function closePmSheet() {
+    el.pmOverlay.classList.remove("show");
+    el.pmSheet.classList.remove("show");
+  }
+  el.pmDoneBtn.addEventListener("click", openPmSheet);
+  el.pmCancelBtn.addEventListener("click", closePmSheet);
+  el.pmOverlay.addEventListener("click", closePmSheet);
+
+  el.pmForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var c = custById(currentId);
+    if (!c) { closePmSheet(); return; }
+    var date = el.pmDate.value || todayStr();
+    if (!c.history) c.history = [];
+    c.history.push({ date: date, note: el.pmNote.value.trim() });
+    c.lastPM = date;   // เริ่มนับรอบใหม่
+    saveCustomers();
+    closePmSheet();
+    flash("✅ บันทึก PM แล้ว เริ่มนับรอบใหม่");
+    openDetail(currentId);
+  });
+
+  // ---------- ลบลูกค้า ----------
+  el.deleteBtn.addEventListener("click", function () {
+    var c = custById(currentId);
+    if (!c) return;
+    if (!confirm('ลบลูกค้า "' + c.name + '" ?\nประวัติการทำ PM ทั้งหมดจะถูกลบด้วย')) return;
+    customers = customers.filter(function (x) { return x.id !== currentId; });
+    saveCustomers();
+    flash("🗑 ลบลูกค้าแล้ว");
+    backToList();
+  });
+
+  // ---------- init ----------
+  renderList();
+})();
+</script>
+</body>
+</html>
