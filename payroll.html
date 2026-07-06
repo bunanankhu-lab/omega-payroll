@@ -536,6 +536,7 @@
     <button type="button" data-tab="payroll">🧮 ทำเงินเดือน</button>
     <button type="button" data-tab="slip">🧾 สลิปเงินเดือน</button>
     <button type="button" data-tab="fo">📋 ใบงาน FO</button>
+    <button type="button" data-tab="report">📈 สรุปงาน</button>
     <button type="button" data-tab="master">🗂️ ข้อมูลดิบ</button>
     <a class="tab-link" href="index.html#crm" target="_top">🤝 CRM ลูกค้า</a>
     <a class="tab-link" href="index.html#pm" target="_top">🔧 เตือนรอบ PM</a>
@@ -979,6 +980,59 @@
     </div>
   </section>
 
+  <!-- ============ TAB: สรุปงาน (รายเดือน + เรคคอร์ดรายร้านรายปี) ============ -->
+  <section class="tab-panel" id="tab-report" hidden>
+    <div class="err" id="rptTableErr" style="display:none;margin:0 0 14px;"></div>
+
+    <div class="card">
+      <h2>📈 สรุปงานประจำเดือน</h2>
+      <div class="emp-filter">
+        <input type="month" id="rptMonth" style="flex:0 0 auto">
+        <button type="button" class="btn-secondary" id="rptPrintBtn" style="width:auto;margin:0">🖨️ พิมพ์สรุปเดือนนี้</button>
+      </div>
+      <div class="dash-grid">
+        <div class="dash-card"><div class="dlabel">📋 ใบงานทั้งหมด</div><div class="dval" id="rptTotal">0</div><div class="dlabel" style="margin:6px 0 0" id="rptDoneLine"></div></div>
+        <div class="dash-card"><div class="dlabel">🍽️ เครื่องล้างจาน</div><div class="dval" id="rptDish">0</div></div>
+        <div class="dash-card"><div class="dlabel">🧊 เครื่องทำน้ำแข็ง</div><div class="dval" id="rptIce">0</div></div>
+        <div class="dash-card"><div class="dlabel">📎 อะไหล่/อุปกรณ์ที่ใช้</div><div class="dval" id="rptItemKinds">0</div><div class="dlabel" style="margin:6px 0 0">รายการ (จากใบถอด)</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📋 ใบงานประจำเดือน <span class="hint" id="rptFoCount"></span></h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>เลขที่</th><th>วันที่นัด</th><th>ลูกค้า</th><th>งาน / เครื่อง</th><th>ช่าง</th><th>สถานะ</th></tr></thead>
+          <tbody id="rptFoBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="rptFoEmpty" style="display:none;">ไม่มีใบงานในเดือนนี้</div>
+    </div>
+
+    <div class="card">
+      <h2>📎 ใบถอด/อะไหล่ที่ใช้ประจำเดือน <span class="hint" id="rptItemCount"></span></h2>
+      <div class="card-sub">รวมจำนวนจากใบถอดของทุกใบงานในเดือนที่เลือก — ไว้เช็คสต๊อกและวางแผนสั่งของ</div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>รายการ</th><th>สเปค/รุ่น</th><th class="num">จำนวนรวม</th><th>หน่วย</th><th class="num">ใช้ในใบงาน</th></tr></thead>
+          <tbody id="rptItemBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="rptItemEmpty" style="display:none;">ไม่มีรายการใบถอดในเดือนนี้</div>
+    </div>
+
+    <div class="card">
+      <h2>🏪 เรคคอร์ดรายร้าน (รายปี) <span class="hint" id="rptCustCount"></span></h2>
+      <div class="card-sub">แต่ละร้านเข้าไปทำงานกี่ครั้งในปีที่เลือก — กดชื่อร้านเพื่อดูรายละเอียดทุกครั้ง</div>
+      <div class="emp-filter">
+        <select id="rptYear" style="flex:0 0 auto"></select>
+        <button type="button" class="btn-secondary" id="rptPrintYearBtn" style="width:auto;margin:0">🖨️ พิมพ์เรคคอร์ดรายร้านทั้งปี</button>
+      </div>
+      <div id="rptCustList"></div>
+      <div class="empty" id="rptCustEmpty" style="display:none;">ไม่มีใบงานในปีที่เลือก</div>
+    </div>
+  </section>
+
   <!-- ============ TAB: ข้อมูลดิบ (ชุดอุปกรณ์มาตรฐาน) ============ -->
   <section class="tab-panel" id="tab-master" hidden>
     <div class="err" id="tplTableErr" style="display:none;margin:0 0 14px;"></div>
@@ -1210,7 +1264,13 @@
     custImportCount: $("custImportCount"), custImportReplace: $("custImportReplace"),
     custImportConfirmBtn: $("custImportConfirmBtn"),
     custSearch: $("custSearch"), custBody: $("custBody"), custEmpty: $("custEmpty"), custCount: $("custCount"),
-    foCustSelect: $("foCustSelect")
+    foCustSelect: $("foCustSelect"),
+    rptTableErr: $("rptTableErr"), rptMonth: $("rptMonth"), rptPrintBtn: $("rptPrintBtn"),
+    rptTotal: $("rptTotal"), rptDoneLine: $("rptDoneLine"), rptDish: $("rptDish"), rptIce: $("rptIce"),
+    rptItemKinds: $("rptItemKinds"), rptFoBody: $("rptFoBody"), rptFoEmpty: $("rptFoEmpty"), rptFoCount: $("rptFoCount"),
+    rptItemBody: $("rptItemBody"), rptItemEmpty: $("rptItemEmpty"), rptItemCount: $("rptItemCount"),
+    rptYear: $("rptYear"), rptCustList: $("rptCustList"), rptCustEmpty: $("rptCustEmpty"),
+    rptCustCount: $("rptCustCount"), rptPrintYearBtn: $("rptPrintYearBtn")
   };
 
   // ---------- settings + mapping ----------
@@ -2381,6 +2441,7 @@
     loadFo().then(function () {
       renderFoList();
       el.foTableErr.style.display = foTableMissing ? "" : "none";
+      if (activeTab === "report") renderReport();
     }).finally(function () { foRefreshing = false; });
   }
 
@@ -2784,12 +2845,202 @@
     window.print();
   }
 
+  // ---------- สรุปงาน (รายเดือน + เรคคอร์ดรายร้านรายปี) ----------
+  function rptFoStatusLabel(f) { return (FO_STATUS[f.status] || FO_STATUS.draft).label; }
+  function rptJobLabel(f) {
+    return [f.jobDesc, f.machineModel].filter(Boolean).join(" · ") || "—";
+  }
+  function rptMonthData(mk) {
+    return foOrders.filter(function (f) { return (f.jobDate || "").slice(0, 7) === mk; })
+      .sort(function (a, b) { return a.jobDate < b.jobDate ? -1 : 1; });
+  }
+  function rptAggItems(list) {
+    var map = {};
+    list.forEach(function (f) {
+      (f.items || []).forEach(function (it) {
+        var name = String(it.name || "").trim();
+        if (!name) return;
+        var spec = String(it.spec || "").trim(), unit = String(it.unit || "").trim();
+        var key = name + "||" + spec + "||" + unit;
+        if (!map[key]) map[key] = { name: name, spec: spec, unit: unit, qty: 0, fos: {} };
+        map[key].qty += Number(it.qty) || 0;
+        map[key].fos[f.foNo] = true;
+      });
+    });
+    return Object.keys(map).map(function (k) {
+      var v = map[k];
+      v.foCount = Object.keys(v.fos).length;
+      return v;
+    }).sort(function (a, b) { return a.name.localeCompare(b.name, "th"); });
+  }
+  function rptYearData(y) {
+    var byCust = {};
+    foOrders.forEach(function (f) {
+      if ((f.jobDate || "").slice(0, 4) !== y) return;
+      var c = (f.customer || "").trim() || "(ไม่ระบุชื่อ)";
+      if (!byCust[c]) byCust[c] = [];
+      byCust[c].push(f);
+    });
+    return Object.keys(byCust).map(function (c) {
+      return { customer: c, visits: byCust[c].sort(function (a, b) { return a.jobDate < b.jobDate ? 1 : -1; }) };
+    }).sort(function (a, b) {
+      return b.visits.length - a.visits.length || a.customer.localeCompare(b.customer, "th");
+    });
+  }
+  function fillRptYears() {
+    var years = {};
+    years[todayStr().slice(0, 4)] = true;
+    foOrders.forEach(function (f) {
+      var y = (f.jobDate || "").slice(0, 4);
+      if (y) years[y] = true;
+    });
+    var cur = el.rptYear.value;
+    el.rptYear.innerHTML = Object.keys(years).sort().reverse().map(function (y) {
+      return '<option value="' + y + '"' + (y === cur ? " selected" : "") + ">ปี พ.ศ. " + (parseInt(y, 10) + 543) + " (" + y + ")</option>";
+    }).join("");
+  }
+  function renderReport() {
+    el.rptTableErr.style.display = foTableMissing ? "" : "none";
+    el.rptTableErr.textContent = foTableMissing ? "ยังไม่ได้สร้างตาราง fo_orders ใน Supabase — สรุปงานใช้ข้อมูลจากใบงาน FO" : "";
+    if (!el.rptMonth.value) el.rptMonth.value = todayStr().slice(0, 7);
+    fillRptYears();
+
+    // --- สรุปรายเดือน ---
+    var mk = el.rptMonth.value;
+    var list = rptMonthData(mk);
+    var dish = 0, ice = 0, done = 0;
+    list.forEach(function (f) {
+      if (f.jobDesc === "เครื่องล้างจาน") dish++;
+      if (f.jobDesc === "เครื่องทำน้ำแข็ง") ice++;
+      if (f.status === "done" || f.status === "billed") done++;
+    });
+    el.rptTotal.textContent = list.length;
+    el.rptDoneLine.textContent = list.length ? ("ปิดงานแล้ว " + done + " · ค้าง " + (list.length - done)) : "";
+    el.rptDish.textContent = dish;
+    el.rptIce.textContent = ice;
+    el.rptFoCount.textContent = "(" + list.length + ")";
+    el.rptFoEmpty.style.display = list.length ? "none" : "";
+    el.rptFoBody.innerHTML = list.map(function (f) {
+      return "<tr>" +
+        "<td><b>" + escapeHtml(f.foNo) + "</b></td>" +
+        "<td>" + formatDateThai(f.jobDate) + "</td>" +
+        "<td>" + escapeHtml(f.customer) + (f.site ? '<div class="hint">' + escapeHtml(f.site) + "</div>" : "") + "</td>" +
+        "<td>" + escapeHtml(rptJobLabel(f)) + (f.machineSerial ? '<div class="hint">S/N ' + escapeHtml(f.machineSerial) + "</div>" : "") + "</td>" +
+        "<td>" + escapeHtml(f.technician || "—") + "</td>" +
+        "<td>" + foStatusBadge(f.status) + "</td>" +
+      "</tr>";
+    }).join("");
+
+    var items = rptAggItems(list);
+    el.rptItemKinds.textContent = items.length;
+    el.rptItemCount.textContent = "(" + items.length + " รายการ)";
+    el.rptItemEmpty.style.display = items.length ? "none" : "";
+    el.rptItemBody.innerHTML = items.map(function (it) {
+      return "<tr>" +
+        "<td>" + escapeHtml(it.name) + "</td>" +
+        "<td>" + escapeHtml(it.spec || "—") + "</td>" +
+        '<td class="num"><b>' + (it.qty || "—") + "</b></td>" +
+        "<td>" + escapeHtml(it.unit || "—") + "</td>" +
+        '<td class="num">' + it.foCount + " ใบ</td>" +
+      "</tr>";
+    }).join("");
+
+    // --- เรคคอร์ดรายร้าน (รายปี) ---
+    var y = el.rptYear.value || todayStr().slice(0, 4);
+    var custs = rptYearData(y);
+    el.rptCustCount.textContent = "(" + custs.length + " ร้าน)";
+    el.rptCustEmpty.style.display = custs.length ? "none" : "";
+    el.rptCustList.innerHTML = custs.map(function (c) {
+      var last = c.visits[0];
+      var rows = c.visits.map(function (f) {
+        return "<tr>" +
+          "<td>" + formatDateThai(f.jobDate) + "</td>" +
+          "<td>" + escapeHtml(f.foNo) + "</td>" +
+          "<td>" + escapeHtml(rptJobLabel(f)) + "</td>" +
+          "<td>" + escapeHtml(f.technician || "—") + "</td>" +
+          "<td>" + foStatusBadge(f.status) + "</td>" +
+        "</tr>";
+      }).join("");
+      return '<details class="fo-policy" style="margin-bottom:10px">' +
+        "<summary><b>" + escapeHtml(c.customer) + "</b> — " + c.visits.length + " ครั้ง · ล่าสุด " + formatDateThai(last.jobDate) + "</summary>" +
+        '<div class="table-scroll" style="margin-top:10px"><table>' +
+        "<thead><tr><th>วันที่</th><th>เลขที่ FO</th><th>งาน / เครื่อง</th><th>ช่าง</th><th>สถานะ</th></tr></thead>" +
+        "<tbody>" + rows + "</tbody></table></div></details>";
+    }).join("");
+  }
+
+  function rptPageHtml(docTitle, subTitle, bodyHtml) {
+    return '<div class="fo-page">' +
+      '<div class="fp-head">' +
+        '<div class="fp-co"><img src="' + LOGO_DATA_URI + '" alt="logo">' +
+          '<div><div class="nm">บริษัทโอเมก้าอีสาน</div><div class="sub">Omega E-Sarn Co., Ltd.</div></div></div>' +
+        '<div class="fp-doc"><div class="t">' + docTitle + '</div><div>' + subTitle + "</div></div>" +
+      "</div>" + bodyHtml + "</div>";
+  }
+  function printReportHtml(html) {
+    el.foPrintArea.innerHTML = html;
+    document.body.classList.add("print-fo");
+    var cleanup = function () {
+      document.body.classList.remove("print-fo");
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+  }
+  function printRptMonth() {
+    var mk = el.rptMonth.value || todayStr().slice(0, 7);
+    var list = rptMonthData(mk);
+    var items = rptAggItems(list);
+    var done = list.filter(function (f) { return f.status === "done" || f.status === "billed"; }).length;
+    var foRows = list.map(function (f, i) {
+      return "<tr><td class='c'>" + (i + 1) + "</td><td>" + escapeHtml(f.foNo) + "</td><td>" + formatDateThai(f.jobDate) + "</td>" +
+        "<td>" + escapeHtml(f.customer) + (f.site ? " (" + escapeHtml(f.site) + ")" : "") + "</td>" +
+        "<td>" + escapeHtml(rptJobLabel(f)) + "</td><td>" + escapeHtml(f.technician || "—") + "</td>" +
+        "<td>" + rptFoStatusLabel(f) + "</td></tr>";
+    }).join("") || "<tr><td colspan='7' class='c'>— ไม่มีใบงาน —</td></tr>";
+    var itemRows = items.map(function (it, i) {
+      return "<tr><td class='c'>" + (i + 1) + "</td><td>" + escapeHtml(it.name) + "</td><td>" + escapeHtml(it.spec || "—") + "</td>" +
+        "<td class='c'>" + (it.qty || "—") + "</td><td class='c'>" + escapeHtml(it.unit || "—") + "</td><td class='c'>" + it.foCount + "</td></tr>";
+    }).join("") || "<tr><td colspan='6' class='c'>— ไม่มีรายการ —</td></tr>";
+    var body =
+      '<div class="fp-info">' +
+        "<div><span>ใบงานทั้งหมด:</span><b>" + list.length + " ใบ</b></div>" +
+        "<div><span>ปิดงานแล้ว:</span>" + done + " · ค้าง " + (list.length - done) + "</div>" +
+        "<div><span>เครื่องล้างจาน:</span>" + list.filter(function (f) { return f.jobDesc === "เครื่องล้างจาน"; }).length + " ใบ</div>" +
+        "<div><span>เครื่องทำน้ำแข็ง:</span>" + list.filter(function (f) { return f.jobDesc === "เครื่องทำน้ำแข็ง"; }).length + " ใบ</div>" +
+      "</div>" +
+      '<h3 style="margin:12px 0 4px;font-size:14px;">📋 ใบงานประจำเดือน</h3>' +
+      '<table class="fp-items"><thead><tr><th style="width:32px;">ลำดับ</th><th>เลขที่</th><th>วันที่นัด</th><th>ลูกค้า</th><th>งาน / เครื่อง</th><th>ช่าง</th><th>สถานะ</th></tr></thead><tbody>' + foRows + "</tbody></table>" +
+      '<h3 style="margin:12px 0 4px;font-size:14px;">📎 ใบถอด/อะไหล่ที่ใช้ประจำเดือน</h3>' +
+      '<table class="fp-items"><thead><tr><th style="width:32px;">ลำดับ</th><th>รายการ</th><th>สเปค/รุ่น</th><th style="width:70px;">จำนวนรวม</th><th style="width:60px;">หน่วย</th><th style="width:70px;">ใช้ในใบงาน</th></tr></thead><tbody>' + itemRows + "</tbody></table>";
+    printReportHtml(rptPageHtml("สรุปงานประจำเดือน", "เดือน" + monthLabel(mk), body));
+  }
+  function printRptYear() {
+    var y = el.rptYear.value || todayStr().slice(0, 4);
+    var custs = rptYearData(y);
+    var body = custs.map(function (c) {
+      var rows = c.visits.map(function (f, i) {
+        return "<tr><td class='c'>" + (i + 1) + "</td><td>" + formatDateThai(f.jobDate) + "</td><td>" + escapeHtml(f.foNo) + "</td>" +
+          "<td>" + escapeHtml(rptJobLabel(f)) + (f.machineSerial ? " · S/N " + escapeHtml(f.machineSerial) : "") + "</td>" +
+          "<td>" + escapeHtml(f.technician || "—") + "</td><td>" + rptFoStatusLabel(f) + "</td></tr>";
+      }).join("");
+      return '<h3 style="margin:14px 0 4px;font-size:14px;">🏪 ' + escapeHtml(c.customer) + " — " + c.visits.length + " ครั้ง</h3>" +
+        '<table class="fp-items"><thead><tr><th style="width:32px;">ครั้งที่</th><th>วันที่</th><th>เลขที่ FO</th><th>งาน / เครื่อง</th><th>ช่าง</th><th>สถานะ</th></tr></thead><tbody>' + rows + "</tbody></table>";
+    }).join("") || '<div class="fp-note">— ไม่มีใบงานในปีนี้ —</div>';
+    printReportHtml(rptPageHtml("เรคคอร์ดงานรายร้าน", "ประจำปี พ.ศ. " + (parseInt(y, 10) + 543) + " · " + custs.length + " ร้าน", body));
+  }
+  el.rptMonth.addEventListener("change", renderReport);
+  el.rptYear.addEventListener("change", renderReport);
+  el.rptPrintBtn.addEventListener("click", printRptMonth);
+  el.rptPrintYearBtn.addEventListener("click", printRptYear);
+
   // ---------- tabs ----------
   function switchTab(tab) {
     activeTab = tab;
     document.querySelectorAll(".tabs button").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-tab") === tab); });
-    ["dashboard", "employees", "import", "payroll", "slip", "fo", "master"].forEach(function (t) { $("tab-" + t).hidden = (t !== tab); });
+    ["dashboard", "employees", "import", "payroll", "slip", "fo", "report", "master"].forEach(function (t) { $("tab-" + t).hidden = (t !== tab); });
     if (tab === "dashboard") renderDashboard();
+    if (tab === "report") { refreshFoQuiet(); renderReport(); }
     if (tab === "fo") renderFo();
     if (tab === "master") renderMaster();
     if (tab === "payroll") renderPayroll();
