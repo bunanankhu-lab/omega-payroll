@@ -285,6 +285,10 @@
   <div class="grip"></div>
   <h3 id="custSheetTitle">เพิ่มลูกค้าใหม่</h3>
   <form id="custForm">
+    <div class="field" id="pickWrap" hidden>
+      <label for="fPick">📋 เลือกจากรายชื่อลูกค้าในระบบ (เติมข้อมูลให้อัตโนมัติ)</label>
+      <select id="fPick"><option value="">— พิมพ์เองด้านล่าง หรือเลือกจากรายชื่อ —</option></select>
+    </div>
     <div class="field">
       <label for="fName">ชื่อลูกค้า / ร้าน *</label>
       <input id="fName" required placeholder="เช่น ร้านครัวคุณหญิง">
@@ -367,6 +371,10 @@
 
   var STORE_KEY = "omega_pm_customers";
 
+  // ดึงรายชื่อลูกค้าจากระบบกลาง (ทะเบียนเครื่องหน้าเงินเดือน + CRM) มาให้เลือกในฟอร์ม
+  var SUPABASE_URL = "https://vhrexjmzdcvlojzanvum.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_47xRsvJMYfqk1XSlW6qjaQ_8ABKblB5";
+
   // ---------- storage ----------
   function loadCustomers() {
     try {
@@ -401,6 +409,7 @@
     dHistory: $("dHistory"),
     pmDoneBtn: $("pmDoneBtn"), editBtn: $("editBtn"), deleteBtn: $("deleteBtn"),
     custOverlay: $("custOverlay"), custSheet: $("custSheet"), custSheetTitle: $("custSheetTitle"),
+    pickWrap: $("pickWrap"), fPick: $("fPick"),
     custForm: $("custForm"), fName: $("fName"), fPhone: $("fPhone"), fType: $("fType"),
     fModel: $("fModel"), fAddress: $("fAddress"), fLastPM: $("fLastPM"), fCycle: $("fCycle"),
     fNote: $("fNote"), fErr: $("fErr"), custCancelBtn: $("custCancelBtn"),
@@ -581,6 +590,81 @@
   }
   el.backBtn.addEventListener("click", backToList);
 
+  // ---------- รายชื่อลูกค้าจากระบบกลาง ----------
+  var pickList = null;
+  function extractPhone(s) {
+    var m = String(s || "").match(/0\d{1,2}[- ]?\d{3,4}[- ]?\d{3,4}/);
+    return m ? m[0] : "";
+  }
+  function parseCycle(s) {
+    s = String(s || "");
+    var m = s.match(/(\d+)\s*เดือน/);
+    if (m) return parseInt(m[1], 10) * 30;
+    m = s.match(/(\d+)\s*วัน/);
+    if (m) return parseInt(m[1], 10);
+    m = s.match(/^\s*(\d+)\s*$/);
+    if (m) return parseInt(m[1], 10);
+    return null;
+  }
+  function loadPickList() {
+    if (pickList) { fillPick(); return; }
+    var headers = { apikey: SUPABASE_KEY };
+    Promise.all([
+      fetch(SUPABASE_URL + "/rest/v1/fo_customers?select=customer,machine_model,location,pm_cycle&order=customer", { headers: headers })
+        .then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+      fetch(SUPABASE_URL + "/rest/v1/crm_contacts?select=name,phone,company,address&order=name", { headers: headers })
+        .then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+    ]).then(function (rs) {
+      var items = [];
+      rs[0].forEach(function (fo) {
+        if (!fo.customer) return;
+        var phone = extractPhone(fo.customer);
+        items.push({
+          label: fo.customer,
+          name: fo.customer.replace(phone, "").replace(/\s{2,}/g, " ").trim(),
+          phone: phone,
+          model: fo.machine_model || "",
+          address: fo.location || "",
+          cycle: parseCycle(fo.pm_cycle),
+          src: "ทะเบียนเครื่องในระบบ"
+        });
+      });
+      rs[1].forEach(function (c) {
+        if (!c.name) return;
+        items.push({
+          label: c.name + (c.company ? " (" + c.company + ")" : ""),
+          name: c.name, phone: c.phone || "", model: "",
+          address: c.address || "", cycle: null, src: "ลูกค้าจาก CRM"
+        });
+      });
+      if (items.length === 0) return; // ออฟไลน์/ไม่มีข้อมูล — ซ่อนช่องไว้ กรอกเองได้ปกติ
+      pickList = items;
+      fillPick();
+    });
+  }
+  function fillPick() {
+    var groups = {};
+    pickList.forEach(function (it, i) {
+      if (!groups[it.src]) groups[it.src] = [];
+      groups[it.src].push('<option value="' + i + '">' + it.label.replace(/</g, "&lt;") + "</option>");
+    });
+    var h = '<option value="">— พิมพ์เองด้านล่าง หรือเลือกจากรายชื่อ (' + pickList.length + ' ราย) —</option>';
+    Object.keys(groups).forEach(function (g) {
+      h += '<optgroup label="' + g + '">' + groups[g].join("") + "</optgroup>";
+    });
+    el.fPick.innerHTML = h;
+    el.pickWrap.hidden = false;
+  }
+  el.fPick && el.fPick.addEventListener("change", function () {
+    var it = pickList && pickList[Number(el.fPick.value)];
+    if (!it) return;
+    el.fName.value = it.name;
+    if (it.phone) el.fPhone.value = it.phone;
+    if (it.model) el.fModel.value = it.model;
+    if (it.address) el.fAddress.value = it.address;
+    if (it.cycle) { el.fCycle.value = it.cycle; updateCycleQuick(); }
+  });
+
   // ---------- ฟอร์มเพิ่ม/แก้ไข ----------
   function openCustSheet(editId) {
     editingId = editId || null;
@@ -595,7 +679,9 @@
     el.fCycle.value = c ? c.cycle : 45;
     el.fNote.value = c ? c.note : "";
     el.fErr.textContent = "";
+    el.fPick.value = "";
     updateCycleQuick();
+    loadPickList();
     el.custOverlay.classList.add("show");
     el.custSheet.classList.add("show");
   }
