@@ -141,6 +141,10 @@
   .login-card .field { text-align: left; margin-bottom: 13px; }
   .login-hint { margin-top: 14px; font-size: .78rem; color: var(--muted); }
   .login-hint a { color: var(--primary); text-decoration: none; }
+  #noAccessOverlay {
+    position: fixed; inset: 0; background: var(--bg); display: flex;
+    align-items: center; justify-content: center; padding: 20px; z-index: 100;
+  }
 
   .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
   .tabs button {
@@ -360,6 +364,9 @@
     .dash-two { grid-template-columns: 1fr; }
     .row2 { grid-template-columns: 1fr; }
   }
+
+  /* สำคัญ: บังคับให้ hidden ชนะทุกกฎ display (ไม่งั้น overlay ที่มี display:flex จะซ่อนไม่ลง) */
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -387,7 +394,7 @@
 </div>
 
 <!-- ==================== แจ้งไม่มีสิทธิ์ ==================== -->
-<div id="noAccessOverlay" hidden style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100">
+<div id="noAccessOverlay" hidden>
   <div class="login-card">
     <img src="logo.png" alt="โลโก้บริษัท" class="login-logo">
     <h2>ยังไม่ได้รับสิทธิ์ใช้งาน CRM</h2>
