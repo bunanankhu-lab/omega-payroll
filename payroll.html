@@ -890,6 +890,16 @@
               <option value="เครื่องทำน้ำแข็ง">2. เครื่องทำน้ำแข็ง</option>
             </select>
           </div>
+          <div class="row2">
+            <div class="field">
+              <label for="foMachineModel">ยี่ห้อ/รุ่นเครื่อง</label>
+              <input type="text" id="foMachineModel" placeholder="เช่น ODT-200HC, Hoshizaki IM-65">
+            </div>
+            <div class="field">
+              <label for="foMachineSerial">Serial No. (S/N)</label>
+              <input type="text" id="foMachineSerial" placeholder="หมายเลขเครื่อง">
+            </div>
+          </div>
 
           <h3 class="fo-items-head">📎 ใบถอด (Component Breakdown) <span class="hint" id="foPickProgress"></span></h3>
           <div class="fo-tpl-pick">
@@ -1180,7 +1190,9 @@
     toast: $("toast"),
     foForm: $("foForm"), foFormTitle: $("foFormTitle"), foNo: $("foNo"), foDate: $("foDate"),
     foCustomer: $("foCustomer"), foSite: $("foSite"), foTech: $("foTech"), foTechList: $("foTechList"),
-    foCoord: $("foCoord"), foJob: $("foJob"), foItemsBody: $("foItemsBody"), foAddItemBtn: $("foAddItemBtn"),
+    foCoord: $("foCoord"), foJob: $("foJob"),
+    foMachineModel: $("foMachineModel"), foMachineSerial: $("foMachineSerial"),
+    foItemsBody: $("foItemsBody"), foAddItemBtn: $("foAddItemBtn"),
     foPickProgress: $("foPickProgress"), foPickedBy: $("foPickedBy"), foStatus: $("foStatus"), foNote: $("foNote"),
     foSubmitBtn: $("foSubmitBtn"), foCancelBtn: $("foCancelBtn"), foErr: $("foErr"),
     foSearch: $("foSearch"), foStatusFilter: $("foStatusFilter"),
@@ -1249,11 +1261,13 @@
     return { id: r.id, foNo: r.fo_no || "", customer: r.customer || "", site: r.site || "",
              jobDesc: r.job_desc || "", jobDate: r.job_date || "", technician: r.technician || "",
              coordinator: r.coordinator || "", status: FO_STATUS[r.status] ? r.status : "draft",
+             machineModel: r.machine_model || "", machineSerial: r.machine_serial || "",
              items: Array.isArray(r.items) ? r.items : [], pickedBy: r.picked_by || "", note: r.note || "" };
   }
   function foToDb(f) {
     return { fo_no: f.foNo, customer: f.customer, site: f.site || "", job_desc: f.jobDesc || "",
              job_date: f.jobDate || null, technician: f.technician || "", coordinator: f.coordinator || "",
+             machine_model: f.machineModel || "", machine_serial: f.machineSerial || "",
              status: f.status || "draft", items: f.items || [], picked_by: f.pickedBy || "", note: f.note || "" };
   }
   async function loadFo() {
@@ -2251,6 +2265,7 @@
     el.foCustomer.value = f.customer; el.foSite.value = f.site;
     el.foTech.value = f.technician; el.foCoord.value = f.coordinator;
     el.foJob.value = f.jobDesc; el.foPickedBy.value = f.pickedBy;
+    el.foMachineModel.value = f.machineModel || ""; el.foMachineSerial.value = f.machineSerial || "";
     el.foStatus.value = f.status; el.foNote.value = f.note;
     el.foFormTitle.textContent = "✏️ แก้ไขใบงาน " + f.foNo;
     el.foSubmitBtn.textContent = "บันทึกการแก้ไข";
@@ -2269,6 +2284,8 @@
       technician: el.foTech.value.trim(),
       coordinator: el.foCoord.value.trim(),
       jobDesc: el.foJob.value.trim(),
+      machineModel: el.foMachineModel.value.trim(),
+      machineSerial: el.foMachineSerial.value.trim(),
       pickedBy: el.foPickedBy.value.trim(),
       status: el.foStatus.value,
       note: el.foNote.value.trim(),
@@ -2330,7 +2347,7 @@
     var list = foOrders.filter(function (f) {
       if (stf && f.status !== stf) return false;
       if (!q) return true;
-      return (f.foNo + " " + f.customer + " " + f.site + " " + f.technician).toLowerCase().indexOf(q) !== -1;
+      return (f.foNo + " " + f.customer + " " + f.site + " " + f.technician + " " + f.machineModel + " " + f.machineSerial).toLowerCase().indexOf(q) !== -1;
     });
     el.foCount.textContent = "(" + list.length + "/" + foOrders.length + ")";
     el.foEmpty.style.display = list.length ? "none" : "";
@@ -2341,7 +2358,8 @@
                              : '<span class="badge new">' + p.done + "/" + p.total + "</span>");
       return "<tr>" +
         "<td><b>" + escapeHtml(f.foNo) + "</b></td>" +
-        "<td>" + escapeHtml(f.customer) + (f.site ? '<div class="hint">' + escapeHtml(f.site) + "</div>" : "") + "</td>" +
+        "<td>" + escapeHtml(f.customer) +
+          ((f.site || f.machineModel) ? '<div class="hint">' + escapeHtml([f.site, f.machineModel].filter(Boolean).join(" · ")) + "</div>" : "") + "</td>" +
         "<td>" + formatDateThai(f.jobDate) + "</td>" +
         "<td>" + escapeHtml(f.technician || "—") + "</td>" +
         "<td>" + pickBadge + "</td>" +
@@ -2675,7 +2693,9 @@
       "<div><span>ผู้ประสานงาน:</span>" + escapeHtml(f.coordinator || "—") + "</div>" +
       "<div><span>สถานะปัจจุบัน:</span>" + (FO_STATUS[f.status] || FO_STATUS.draft).label + "</div>" +
     "</div>" +
-    '<div class="fp-job"><div class="lb">ประเภทงาน / เครื่อง</div>' + escapeHtml(f.jobDesc || "—") + "</div>" +
+    '<div class="fp-job"><div class="lb">ประเภทงาน / เครื่อง</div>' + escapeHtml(f.jobDesc || "—") +
+      (f.machineModel ? " · ยี่ห้อ/รุ่น: " + escapeHtml(f.machineModel) : "") +
+      (f.machineSerial ? " · S/N: " + escapeHtml(f.machineSerial) : "") + "</div>" +
     (f.note ? '<div class="fp-note">หมายเหตุ: ' + escapeHtml(f.note) + "</div>" : "");
   }
   function foItemsTableHtml(f, withCheck) {
@@ -2738,7 +2758,8 @@
     var lines = [
       "🆕 เปิดใบงานใหม่ " + f.foNo,
       "🏪 ลูกค้า: " + f.customer + (f.site ? " (" + f.site + ")" : ""),
-      f.jobDesc ? "🔧 งาน: " + f.jobDesc : "",
+      (f.jobDesc || f.machineModel) ? "🔧 งาน: " + [f.jobDesc, f.machineModel].filter(Boolean).join(" · ") : "",
+      f.machineSerial ? "#️⃣ S/N: " + f.machineSerial : "",
       f.jobDate ? "📅 นัดงาน: " + formatDateThai(f.jobDate) : "",
       f.technician ? "👷 ช่าง: " + f.technician : "",
       itemCount ? "📎 ใบถอด: " + itemCount + " รายการ" : "",
@@ -3023,9 +3044,9 @@
       el.foJob.value = /น้ำแข็ง|ice|hero/i.test(c.machineModel + " " + c.feeder) && !/^odt/i.test(c.machineModel)
         ? "เครื่องทำน้ำแข็ง" : "เครื่องล้างจาน";
     }
+    if (c.machineModel) el.foMachineModel.value = c.machineModel;
+    if (c.serial) el.foMachineSerial.value = c.serial;
     var info = [];
-    if (c.machineModel) info.push("เครื่อง: " + c.machineModel);
-    if (c.serial) info.push("S/N " + c.serial);
     if (c.customerType) info.push(c.customerType);
     if (c.pmCycle) info.push("PM " + c.pmCycle);
     if (info.length) el.foNote.value = info.join(" · ");
