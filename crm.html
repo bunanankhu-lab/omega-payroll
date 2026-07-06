@@ -105,6 +105,42 @@
   .theme-btn:active { transform: scale(.96); }
   .brand { display: flex; align-items: center; gap: 14px; }
   .logo { height: 54px; width: auto; display: block; background: #fff; border: 1px solid var(--border); border-radius: 11px; padding: 5px 9px; box-shadow: var(--shadow); }
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 7px 14px; font-size: .85rem; box-shadow: var(--shadow);
+  }
+  .user-chip b { font-weight: 600; }
+
+  /* ---------- login ---------- */
+  #loginOverlay {
+    position: fixed; inset: 0; background: var(--bg); display: flex;
+    align-items: center; justify-content: center; padding: 20px; z-index: 100;
+  }
+  #loginOverlay::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(42% 38% at 12% 6%, rgba(163,138,94,.16), transparent 72%),
+      radial-gradient(40% 36% at 88% 4%, rgba(184,158,114,.13), transparent 72%),
+      radial-gradient(48% 42% at 80% 94%, rgba(163,138,94,.12), transparent 74%);
+    filter: blur(10px);
+  }
+  .login-card {
+    background: var(--card); border: 1px solid var(--border-glow); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md); padding: 36px 30px; width: 100%; max-width: 400px; text-align: center;
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); position: relative; overflow: hidden;
+    animation: loginIn .45s cubic-bezier(.22,1,.36,1);
+  }
+  @keyframes loginIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .login-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--primary-grad);
+  }
+  .login-logo { height: 62px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 6px 10px; margin-bottom: 14px; }
+  .login-card h2 { margin: 6px 0 2px; font-size: 1.25rem; }
+  .login-card .sub { color: var(--muted); font-size: .85rem; margin-bottom: 20px; }
+  .login-card .field { text-align: left; margin-bottom: 13px; }
+  .login-hint { margin-top: 14px; font-size: .78rem; color: var(--muted); }
+  .login-hint a { color: var(--primary); text-decoration: none; }
 
   .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
   .tabs button {
@@ -178,12 +214,15 @@
   tbody tr:hover { background: var(--bg-soft); }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .76rem; font-weight: 600; }
+  .badge.role-admin { background: var(--warn-bg); color: var(--warn); }
+  .badge.role-sales { background: var(--income-bg); color: var(--income); }
   .icon-btn {
     background: transparent; border: 1px solid var(--border); color: var(--muted);
     border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: .82rem; font-family: inherit; transition: all .12s;
   }
   .icon-btn:hover { border-color: var(--primary); color: var(--text); }
   .icon-btn.danger:hover { border-color: var(--expense); color: var(--expense); background: var(--expense-bg); }
+  .icon-btn:disabled { opacity: .4; cursor: not-allowed; }
   .empty { color: var(--muted); text-align: center; padding: 34px 10px; font-size: .92rem; }
   .save-bar { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
   .save-bar .submit-btn { width: auto; padding: 12px 22px; margin: 0; }
@@ -204,6 +243,7 @@
   }
   .chip.active { background: var(--primary-grad); color: #fff; border-color: transparent; }
   .tag-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--warn-bg); color: var(--balance); margin: 1px 3px 1px 0; }
+  .owner-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .7rem; font-weight: 600; background: var(--bg-soft); border: 1px solid var(--border); color: var(--muted); }
 
   /* dashboard */
   .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 18px; }
@@ -311,7 +351,7 @@
     position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
     background: var(--income); color: #fff; padding: 12px 20px; border-radius: 12px;
     font-weight: 600; box-shadow: 0 8px 28px rgba(0,0,0,.25); opacity: 0; pointer-events: none;
-    transition: opacity .25s, transform .25s; z-index: 50; max-width: 90vw;
+    transition: opacity .25s, transform .25s; z-index: 150; max-width: 90vw;
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -323,7 +363,41 @@
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- ==================== หน้าล็อกอิน ==================== -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <img src="logo.png" alt="โลโก้บริษัท" class="login-logo">
+    <h2>ระบบ CRM ลูกค้าสัมพันธ์</h2>
+    <div class="sub">บริษัทโอเมก้าอีสาน · เข้าสู่ระบบเพื่อใช้งาน</div>
+    <form id="loginForm">
+      <div class="field">
+        <label for="loginEmail">อีเมล</label>
+        <input id="loginEmail" type="email" required autocomplete="username" placeholder="you@omegaesan.com">
+      </div>
+      <div class="field">
+        <label for="loginPass">รหัสผ่าน</label>
+        <input id="loginPass" type="password" required autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button type="submit" class="submit-btn" id="loginBtn">เข้าสู่ระบบ</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+    <div class="login-hint">ลืมรหัสผ่าน? ติดต่อผู้ดูแลระบบ · <a href="index.html">ไปหน้าเงินเดือน</a></div>
+  </div>
+</div>
+
+<!-- ==================== แจ้งไม่มีสิทธิ์ ==================== -->
+<div id="noAccessOverlay" hidden style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;z-index:100">
+  <div class="login-card">
+    <img src="logo.png" alt="โลโก้บริษัท" class="login-logo">
+    <h2>ยังไม่ได้รับสิทธิ์ใช้งาน CRM</h2>
+    <div class="sub" id="noAccessEmail"></div>
+    <p class="hint">บัญชีนี้ล็อกอินได้ แต่ยังไม่ถูกเพิ่มเข้าระบบ CRM<br>กรุณาติดต่อผู้ดูแลระบบให้เพิ่มสิทธิ์</p>
+    <button type="button" class="btn-secondary" id="noAccessLogout">ออกจากระบบ</button>
+  </div>
+</div>
+
+<div class="app" id="appRoot" hidden>
   <header class="top">
     <div class="brand">
       <img src="logo.png" alt="โลโก้บริษัท" class="logo">
@@ -333,8 +407,10 @@
       </div>
     </div>
     <div class="top-actions">
+      <span class="user-chip" id="userChip"></span>
       <a class="theme-btn" href="index.html">🧮 หน้าเงินเดือน</a>
       <button type="button" class="theme-btn" id="themeBtn">🌙 โหมดมืด</button>
+      <button type="button" class="theme-btn" id="logoutBtn">🚪 ออกจากระบบ</button>
     </div>
   </header>
 
@@ -344,10 +420,11 @@
     <button type="button" data-tab="deals">💼 ดีล</button>
     <button type="button" data-tab="activities">📞 กิจกรรม</button>
     <button type="button" data-tab="tasks">✅ งาน</button>
+    <button type="button" data-tab="users" id="usersTabBtn" hidden>👤 ผู้ใช้</button>
   </nav>
 
   <div id="tablesErr" class="note-box" hidden>
-    ⚠️ ยังไม่พบตาราง CRM ในฐานข้อมูล — เปิด Supabase Dashboard → SQL Editor แล้วรันไฟล์ <b>supabase-crm.sql</b> ก่อน จากนั้นรีเฟรชหน้านี้
+    ⚠️ ยังไม่พบตาราง CRM ในฐานข้อมูล — เปิด Supabase Dashboard → SQL Editor แล้วรันไฟล์ <b>supabase-crm.sql</b> และ <b>supabase-crm-auth.sql</b> ก่อน จากนั้นรีเฟรชหน้านี้
   </div>
 
   <!-- ==================== ภาพรวม ==================== -->
@@ -421,7 +498,7 @@
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>ชื่อ</th><th>บริษัท</th><th>เบอร์โทร</th><th>แท็ก</th><th class="num">ดีล</th><th></th></tr></thead>
+              <thead><tr id="ctHeadRow"></tr></thead>
               <tbody id="ctBody"></tbody>
             </table>
           </div>
@@ -555,6 +632,42 @@
       </div>
     </div>
   </section>
+
+  <!-- ==================== ผู้ใช้ (ADMIN เท่านั้น) ==================== -->
+  <section class="tab-panel" id="tab-users" hidden>
+    <div class="grid">
+      <div class="card">
+        <h2>➕ เพิ่มผู้ใช้ใหม่</h2>
+        <div class="card-sub">สร้างบัญชีให้พนักงานขายหรือผู้ดูแลระบบคนใหม่</div>
+        <form id="usForm">
+          <div class="field"><label for="usEmail">อีเมล *</label><input id="usEmail" type="email" required></div>
+          <div class="field"><label for="usPass">รหัสผ่าน * (อย่างน้อย 6 ตัวอักษร)</label><input id="usPass" type="text" required minlength="6"></div>
+          <div class="row2">
+            <div class="field"><label for="usName">ชื่อที่แสดง</label><input id="usName" placeholder="เช่น ฝ่ายขาย 3"></div>
+            <div class="field"><label for="usRole">Role</label>
+              <select id="usRole">
+                <option value="SALES">SALES — เห็นเฉพาะของตัวเอง</option>
+                <option value="ADMIN">ADMIN — เห็นทั้งหมด</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="submit-btn" id="usSubmitBtn">สร้างบัญชี</button>
+          <div class="err" id="usErr"></div>
+          <p class="hint" style="margin-top:10px">หมายเหตุ: ถ้าโปรเจกต์ Supabase เปิด Confirm email ไว้ ผู้ใช้ใหม่ต้องกดยืนยันลิงก์ในอีเมลก่อนถึงจะล็อกอินได้ (ปิดได้ที่ Authentication → Sign In / Providers → Email)</p>
+        </form>
+      </div>
+      <div class="card">
+        <h2>👤 ผู้ใช้ทั้งหมด <span class="hint" id="usCount"></span></h2>
+        <div class="card-sub">SALES เห็นเฉพาะลูกค้า/ดีล/กิจกรรม/งานที่ตัวเองสร้าง · ADMIN เห็นและจัดการได้ทั้งหมด</div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>อีเมล</th><th>ชื่อ</th><th>Role</th><th></th></tr></thead>
+            <tbody id="usBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
 <div id="toast"></div>
@@ -596,6 +709,9 @@
   var sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
   // ---------- state ----------
+  var session = null;
+  var myProfile = null;
+  var profiles = [];
   var contacts = [], deals = [], activities = [], tasks = [];
   var editingContactId = null, editingDealId = null;
   var acFilter = "";
@@ -605,7 +721,11 @@
   // ---------- elements ----------
   var $ = function (id) { return document.getElementById(id); };
   var el = {
-    themeBtn: $("themeBtn"), toast: $("toast"), tablesErr: $("tablesErr"),
+    themeBtn: $("themeBtn"), toast: $("toast"), tablesErr: $("tablesErr"), appRoot: $("appRoot"),
+    loginOverlay: $("loginOverlay"), loginForm: $("loginForm"), loginEmail: $("loginEmail"),
+    loginPass: $("loginPass"), loginBtn: $("loginBtn"), loginErr: $("loginErr"),
+    noAccessOverlay: $("noAccessOverlay"), noAccessEmail: $("noAccessEmail"), noAccessLogout: $("noAccessLogout"),
+    userChip: $("userChip"), logoutBtn: $("logoutBtn"), usersTabBtn: $("usersTabBtn"),
     dashSales: $("dashSales"), dashOpen: $("dashOpen"), dashOpenVal: $("dashOpenVal"),
     dashWon: $("dashWon"), dashWinRate: $("dashWinRate"), dashWinDetail: $("dashWinDetail"),
     salesBars: $("salesBars"), salesEmpty: $("salesEmpty"),
@@ -616,7 +736,8 @@
     ctEmail: $("ctEmail"), ctCompany: $("ctCompany"), ctPosition: $("ctPosition"),
     ctAddress: $("ctAddress"), ctTags: $("ctTags"), ctSubmitBtn: $("ctSubmitBtn"),
     ctCancelBtn: $("ctCancelBtn"), ctErr: $("ctErr"), ctSearch: $("ctSearch"),
-    ctTagFilter: $("ctTagFilter"), ctBody: $("ctBody"), ctEmpty: $("ctEmpty"), ctCount: $("ctCount"),
+    ctTagFilter: $("ctTagFilter"), ctHeadRow: $("ctHeadRow"), ctBody: $("ctBody"),
+    ctEmpty: $("ctEmpty"), ctCount: $("ctCount"),
     csvImportBtn: $("csvImportBtn"), csvExportBtn: $("csvExportBtn"), csvFile: $("csvFile"),
     cdName: $("cdName"), cdPositionCo: $("cdPositionCo"), cdTags: $("cdTags"),
     cdDealSum: $("cdDealSum"), cdBackBtn: $("cdBackBtn"), cdPhone: $("cdPhone"),
@@ -633,7 +754,10 @@
     tkForm: $("tkForm"), tkTitle: $("tkTitle"), tkDue: $("tkDue"), tkContact: $("tkContact"),
     tkDeal: $("tkDeal"), tkErr: $("tkErr"),
     tkPendingList: $("tkPendingList"), tkPendingEmpty: $("tkPendingEmpty"), tkPendingCount: $("tkPendingCount"),
-    tkDoneList: $("tkDoneList"), tkDoneEmpty: $("tkDoneEmpty"), tkDoneCount: $("tkDoneCount")
+    tkDoneList: $("tkDoneList"), tkDoneEmpty: $("tkDoneEmpty"), tkDoneCount: $("tkDoneCount"),
+    usForm: $("usForm"), usEmail: $("usEmail"), usPass: $("usPass"), usName: $("usName"),
+    usRole: $("usRole"), usSubmitBtn: $("usSubmitBtn"), usErr: $("usErr"),
+    usBody: $("usBody"), usCount: $("usCount")
   };
 
   // ---------- helpers ----------
@@ -667,6 +791,15 @@
   function isDueToday(t) { return t.due_date && dateOnly(t.due_date) === todayStr(); }
   function contactById(id) { return contacts.find(function (c) { return c.id === id; }) || null; }
   function dealById(id) { return deals.find(function (d) { return d.id === id; }) || null; }
+  function isAdmin() { return myProfile && myProfile.role === "ADMIN"; }
+  function ownerName(id) {
+    var p = profiles.find(function (x) { return x.id === id; });
+    return p ? (p.name || p.email) : "";
+  }
+  function ownerChip(id) {
+    var n = ownerName(id);
+    return n ? '<span class="owner-chip">👤 ' + esc(n) + "</span>" : "";
+  }
   var toastTimer = null;
   function flash(msg) {
     el.toast.textContent = msg; el.toast.classList.add("show");
@@ -684,17 +817,83 @@
     if (/schema cache|does not exist/i.test(m)) { el.tablesErr.hidden = false; }
     flash("⚠️ " + prefix + ": " + m);
   }
+  function authErrTh(msg) {
+    if (/invalid login credentials/i.test(msg)) return "อีเมลหรือรหัสผ่านไม่ถูกต้อง";
+    if (/email not confirmed/i.test(msg)) return "บัญชีนี้ยังไม่ได้ยืนยันอีเมล — ติดต่อผู้ดูแลระบบ";
+    if (/rate limit/i.test(msg)) return "ลองบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่";
+    return msg;
+  }
+
+  // ---------- auth ----------
+  function showLogin() {
+    el.loginOverlay.hidden = false;
+    el.noAccessOverlay.hidden = true;
+    el.appRoot.hidden = true;
+  }
+  function showNoAccess(email) {
+    el.noAccessEmail.textContent = email;
+    el.loginOverlay.hidden = true;
+    el.noAccessOverlay.hidden = false;
+    el.appRoot.hidden = true;
+  }
+  function showApp() {
+    el.loginOverlay.hidden = true;
+    el.noAccessOverlay.hidden = true;
+    el.appRoot.hidden = false;
+  }
+
+  function handleSession(s) {
+    session = s;
+    if (!s) { myProfile = null; showLogin(); return; }
+    sb.from("crm_profiles").select("*").eq("id", s.user.id).maybeSingle().then(function (r) {
+      if (r.error) { dbErr("ตรวจสอบสิทธิ์ไม่สำเร็จ", r.error); showNoAccess(s.user.email); return; }
+      if (!r.data) { showNoAccess(s.user.email); return; }
+      myProfile = r.data;
+      el.userChip.innerHTML = "👤 <b>" + esc(myProfile.name || myProfile.email) + "</b> " +
+        (isAdmin() ? '<span class="badge role-admin">ADMIN</span>' : '<span class="badge role-sales">SALES</span>');
+      el.usersTabBtn.hidden = !isAdmin();
+      if (!isAdmin() && activeTab === "users") switchTab("dashboard");
+      showApp();
+      loadAll();
+    });
+  }
+
+  el.loginForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    el.loginErr.textContent = "";
+    el.loginBtn.disabled = true;
+    el.loginBtn.textContent = "กำลังเข้าสู่ระบบ...";
+    sb.auth.signInWithPassword({ email: el.loginEmail.value.trim(), password: el.loginPass.value })
+      .then(function (r) {
+        el.loginBtn.disabled = false;
+        el.loginBtn.textContent = "เข้าสู่ระบบ";
+        if (r.error) { el.loginErr.textContent = authErrTh(r.error.message); return; }
+        el.loginPass.value = "";
+        handleSession(r.data.session);
+      });
+  });
+
+  function doLogout() {
+    sb.auth.signOut().then(function () {
+      contacts = []; deals = []; activities = []; tasks = []; profiles = [];
+      handleSession(null);
+      flash("ออกจากระบบแล้ว");
+    });
+  }
+  el.logoutBtn.addEventListener("click", doLogout);
+  el.noAccessLogout.addEventListener("click", doLogout);
 
   // ---------- data ----------
   function loadAll() {
-    if (!sb) { flash("⚠️ โหลดไลบรารี Supabase ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วรีเฟรช"); return Promise.resolve(); }
+    if (!sb || !session) return Promise.resolve();
     return Promise.all([
       sb.from("crm_contacts").select("*").order("created_at", { ascending: false }),
       sb.from("crm_deals").select("*").order("created_at", { ascending: false }),
       sb.from("crm_activities").select("*").order("created_at", { ascending: false }),
-      sb.from("crm_tasks").select("*").order("due_date", { ascending: true, nullsFirst: false })
+      sb.from("crm_tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }),
+      sb.from("crm_profiles").select("*").order("created_at", { ascending: true })
     ]).then(function (rs) {
-      var names = ["ลูกค้า", "ดีล", "กิจกรรม", "งาน"];
+      var names = ["ลูกค้า", "ดีล", "กิจกรรม", "งาน", "ผู้ใช้"];
       for (var i = 0; i < rs.length; i++) {
         if (rs[i].error) { dbErr("โหลดข้อมูล" + names[i] + "ไม่สำเร็จ", rs[i].error); return; }
       }
@@ -703,6 +902,7 @@
       deals = rs[1].data || [];
       activities = rs[2].data || [];
       tasks = rs[3].data || [];
+      profiles = rs[4].data || [];
       renderAll();
     });
   }
@@ -714,6 +914,7 @@
     renderKanban();
     renderActivities();
     renderTasks();
+    if (isAdmin()) renderUsers();
     if (detailContactId) renderContactDetail(detailContactId);
   }
 
@@ -763,7 +964,6 @@
     el.dashWinRate.textContent = winRate + "%";
     el.dashWinDetail.textContent = "ชนะ " + wonDeals.length + " / แพ้ " + lostCount;
 
-    // ยอดขายย้อนหลัง 6 เดือน
     var months = [];
     for (var i = 5; i >= 0; i--) {
       var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
@@ -786,7 +986,6 @@
     }).join("");
     el.salesEmpty.hidden = wonDeals.length > 0;
 
-    // โดนัทสัดส่วนดีล
     var segs = STAGES.map(function (s) {
       return { stage: s, label: STAGE_INFO[s].label, color: STAGE_INFO[s].color,
                count: deals.filter(function (d) { return d.stage === s; }).length };
@@ -809,7 +1008,6 @@
       }).join("");
     }
 
-    // งานวันนี้ (รวมงานเลยกำหนด)
     var todays = tasks.filter(function (t) { return !t.done && t.due_date && dateOnly(t.due_date) <= todayStr(); });
     el.todayTaskList.innerHTML = todays.length === 0
       ? '<div class="empty">ไม่มีงานค้างสำหรับวันนี้ 🎉</div>'
@@ -821,7 +1019,6 @@
             '<div class="mi-right' + (od ? " overdue-text" : "") + '">' + (od ? "เลยกำหนด · " + fmtDate(t.due_date) : "วันนี้") + "</div></div>";
         }).join("");
 
-    // ดีลใกล้ถึงวันปิด 30 วัน
     var lim = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
     var limStr = lim.getFullYear() + "-" + String(lim.getMonth() + 1).padStart(2, "0") + "-" + String(lim.getDate()).padStart(2, "0");
     var closing = openDeals.filter(function (d) {
@@ -847,7 +1044,6 @@
     return deals.filter(function (d) { return d.contact_id === id; }).length;
   }
   function renderContacts() {
-    // ตัวเลือกแท็ก
     var tagSet = {};
     contacts.forEach(function (c) { splitTags(c.tags).forEach(function (t) { tagSet[t] = true; }); });
     var cur = el.ctTagFilter.value;
@@ -855,6 +1051,9 @@
       Object.keys(tagSet).sort(function (a, b) { return a.localeCompare(b, "th"); }).map(function (t) {
         return '<option value="' + esc(t) + '"' + (t === cur ? " selected" : "") + ">" + esc(t) + "</option>";
       }).join("");
+
+    el.ctHeadRow.innerHTML = "<th>ชื่อ</th><th>บริษัท</th><th>เบอร์โทร</th><th>แท็ก</th>" +
+      (isAdmin() ? "<th>ผู้ดูแล</th>" : "") + '<th class="num">ดีล</th><th></th>';
 
     var q = el.ctSearch.value.trim().toLowerCase();
     var tag = el.ctTagFilter.value;
@@ -875,6 +1074,7 @@
         "<td>" + (esc(c.company) || "-") + "</td>" +
         "<td>" + (esc(c.phone) || "-") + "</td>" +
         "<td>" + splitTags(c.tags).map(function (t) { return '<span class="tag-chip">' + esc(t) + "</span>"; }).join("") + "</td>" +
+        (isAdmin() ? "<td>" + (ownerChip(c.owner_id) || "-") + "</td>" : "") +
         '<td class="num">' + contactDealCount(c.id) + "</td>" +
         '<td style="text-align:right;white-space:nowrap">' +
           '<button type="button" class="icon-btn" data-edit="' + c.id + '">แก้ไข</button> ' +
@@ -900,6 +1100,7 @@
       address: el.ctAddress.value.trim(), tags: el.ctTags.value.trim()
     };
     if (!data.name) { el.ctErr.textContent = "กรุณาระบุชื่อลูกค้า"; return; }
+    if (!editingContactId) data.owner_id = session.user.id;
     el.ctSubmitBtn.disabled = true;
     var op = editingContactId
       ? sb.from("crm_contacts").update(data).eq("id", editingContactId)
@@ -963,7 +1164,8 @@
     if (!c) { el.cdBackBtn.click(); return; }
     el.cdName.textContent = c.name;
     el.cdPositionCo.textContent = [c.position, c.company].filter(Boolean).join(" · ") || "-";
-    el.cdTags.innerHTML = splitTags(c.tags).map(function (t) { return '<span class="tag-chip">' + esc(t) + "</span>"; }).join("");
+    el.cdTags.innerHTML = splitTags(c.tags).map(function (t) { return '<span class="tag-chip">' + esc(t) + "</span>"; }).join("") +
+      (isAdmin() ? " " + ownerChip(c.owner_id) : "");
     el.cdPhone.textContent = c.phone || "-";
     el.cdEmail.textContent = c.email || "-";
     el.cdAddress.textContent = c.address || "-";
@@ -1046,7 +1248,7 @@
       if (header.indexOf("name") === -1) { flash("⚠️ ไม่พบคอลัมน์ name/ชื่อ ในไฟล์ CSV"); return; }
       var items = [];
       rows.slice(1).forEach(function (r) {
-        var o = { name: "", phone: "", email: "", company: "", position: "", address: "", tags: "" };
+        var o = { name: "", phone: "", email: "", company: "", position: "", address: "", tags: "", owner_id: session.user.id };
         header.forEach(function (k, i) { if (k) o[k] = (r[i] || "").trim(); });
         if (o.name) items.push(o);
       });
@@ -1079,6 +1281,7 @@
           (c ? '<div class="kc-contact">👤 ' + esc(c.name) + "</div>" : "") +
           '<div class="kc-row"><span class="kc-value">' + fmt(d.value) + '</span><span class="kc-prob">' + (d.probability || 0) + "%</span></div>" +
           (d.expected_close ? '<div class="kc-date">📅 ปิด ' + fmtDate(d.expected_close) + "</div>" : "") +
+          (isAdmin() && ownerName(d.owner_id) ? '<div class="kc-date">' + ownerChip(d.owner_id) + "</div>" : "") +
           "</div>";
       }).join("");
       return '<div class="kb-col" data-stage="' + stage + '">' +
@@ -1171,6 +1374,7 @@
       notes: el.dlNotes.value.trim(),
       closed_at: closed ? ((prev && prev.stage === stage && prev.closed_at) || new Date().toISOString()) : null
     };
+    if (!editingDealId) data.owner_id = session.user.id;
     el.dlSubmitBtn.disabled = true;
     var op = editingDealId
       ? sb.from("crm_deals").update(data).eq("id", editingDealId)
@@ -1204,6 +1408,7 @@
     var subs = [];
     if (c) subs.push('<span class="link" data-view-contact="' + c.id + '">ลูกค้า: ' + esc(c.name) + "</span>");
     if (d) subs.push("ดีล: " + esc(d.title));
+    if (isAdmin() && ownerName(a.owner_id)) subs.push("โดย " + esc(ownerName(a.owner_id)));
     return '<div class="act-row">' +
       '<span class="badge" style="background:' + info.color + '1f;color:' + info.color + ';flex-shrink:0">' + info.label + "</span>" +
       '<div class="ac-main"><div class="ac-title">' + esc(a.title) + "</div>" +
@@ -1254,7 +1459,8 @@
     el.acErr.textContent = "";
     var data = {
       type: el.acType.value, title: title, detail: el.acDetail.value.trim(),
-      contact_id: el.acContact.value || null, deal_id: el.acDeal.value || null
+      contact_id: el.acContact.value || null, deal_id: el.acDeal.value || null,
+      owner_id: session.user.id
     };
     sb.from("crm_activities").insert(data).then(function (r) {
       if (r.error) { dbErr("บันทึกกิจกรรมไม่สำเร็จ", r.error); return; }
@@ -1273,6 +1479,7 @@
     var subs = [];
     if (c) subs.push(esc(c.name));
     if (d) subs.push("ดีล: " + esc(d.title));
+    if (isAdmin() && ownerName(t.owner_id)) subs.push("โดย " + esc(ownerName(t.owner_id)));
     var dueHtml = t.due_date
       ? (od ? '<span class="overdue-text">⚠️ เลยกำหนด · ' + fmtDate(t.due_date) + "</span>"
            : today ? '<b style="color:var(--balance)">ครบกำหนดวันนี้</b>'
@@ -1329,7 +1536,8 @@
     el.tkErr.textContent = "";
     var data = {
       title: title, due_date: el.tkDue.value || null,
-      contact_id: el.tkContact.value || null, deal_id: el.tkDeal.value || null
+      contact_id: el.tkContact.value || null, deal_id: el.tkDeal.value || null,
+      owner_id: session.user.id
     };
     sb.from("crm_tasks").insert(data).then(function (r) {
       if (r.error) { dbErr("บันทึกงานไม่สำเร็จ", r.error); return; }
@@ -1339,13 +1547,100 @@
     });
   });
 
+  // ---------- users (ADMIN) ----------
+  function renderUsers() {
+    el.usCount.textContent = "(" + profiles.length + ")";
+    el.usBody.innerHTML = profiles.map(function (p) {
+      var self = p.id === session.user.id;
+      return "<tr>" +
+        "<td>" + esc(p.email) + (self ? ' <span class="hint">(คุณ)</span>' : "") + "</td>" +
+        "<td>" + (esc(p.name) || "-") + "</td>" +
+        "<td>" +
+          '<select data-role="' + p.id + '" style="width:auto;padding:6px 9px;font-size:.85rem"' + (self ? " disabled" : "") + ">" +
+            '<option value="SALES"' + (p.role === "SALES" ? " selected" : "") + ">SALES</option>" +
+            '<option value="ADMIN"' + (p.role === "ADMIN" ? " selected" : "") + ">ADMIN</option>" +
+          "</select></td>" +
+        '<td style="text-align:right">' +
+          '<button type="button" class="icon-btn danger" data-del-user="' + p.id + '"' + (self ? " disabled" : "") + ">ตัดสิทธิ์</button></td>" +
+        "</tr>";
+    }).join("");
+  }
+
+  el.usBody.addEventListener("change", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-role");
+    if (!id) return;
+    var role = e.target.value;
+    sb.from("crm_profiles").update({ role: role }).eq("id", id).then(function (r) {
+      if (r.error) { dbErr("เปลี่ยน role ไม่สำเร็จ", r.error); loadAll(); return; }
+      flash("✅ เปลี่ยน role เป็น " + role + " แล้ว");
+      loadAll();
+    });
+  });
+
+  el.usBody.addEventListener("click", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-del-user");
+    if (!id) return;
+    var p = profiles.find(function (x) { return x.id === id; });
+    if (!p) return;
+    if (!confirm('ตัดสิทธิ์ "' + (p.name || p.email) + '" ออกจากระบบ CRM?\n(บัญชีล็อกอินยังอยู่ แต่จะเข้าใช้ CRM ไม่ได้ · ข้อมูลที่เคยสร้างจะยังอยู่และ ADMIN เห็นได้)')) return;
+    sb.from("crm_profiles").delete().eq("id", id).then(function (r) {
+      if (r.error) { dbErr("ตัดสิทธิ์ไม่สำเร็จ", r.error); return; }
+      flash("🗑 ตัดสิทธิ์ผู้ใช้แล้ว");
+      loadAll();
+    });
+  });
+
+  el.usForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    el.usErr.textContent = "";
+    var email = el.usEmail.value.trim();
+    var pass = el.usPass.value;
+    var name = el.usName.value.trim() || email;
+    var role = el.usRole.value;
+    if (profiles.some(function (p) { return p.email.toLowerCase() === email.toLowerCase(); })) {
+      el.usErr.textContent = "อีเมลนี้มีในระบบอยู่แล้ว";
+      return;
+    }
+    el.usSubmitBtn.disabled = true;
+    el.usSubmitBtn.textContent = "กำลังสร้าง...";
+    // ใช้ fetch ตรงเพื่อไม่ให้ session ของ ADMIN ที่ล็อกอินอยู่ถูกสลับเป็นผู้ใช้ใหม่
+    fetch(SUPABASE_URL + "/auth/v1/signup", {
+      method: "POST",
+      headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, password: pass, data: { name: name } })
+    }).then(function (res) { return res.json().then(function (j) { return { ok: res.ok, j: j }; }); })
+      .then(function (r) {
+        if (!r.ok) {
+          var m = r.j.msg || r.j.message || r.j.error_description || "สร้างบัญชีไม่สำเร็จ";
+          if (/already registered/i.test(m)) m = "อีเมลนี้เคยสมัครไว้แล้วในระบบล็อกอิน — ติดต่อผู้ดูแลให้เพิ่มสิทธิ์ผ่าน SQL";
+          if (/rate limit/i.test(m)) m = "ระบบส่งอีเมลถูกจำกัดชั่วคราว รอ ~1 ชั่วโมงแล้วลองใหม่ หรือปิด Confirm email ใน Supabase";
+          throw new Error(m);
+        }
+        var uid = (r.j.user && r.j.user.id) || r.j.id;
+        if (!uid) throw new Error("ไม่ได้รับ id ผู้ใช้จากระบบ");
+        var needConfirm = !r.j.access_token;
+        return sb.from("crm_profiles").insert({ id: uid, email: email, name: name, role: role }).then(function (r2) {
+          if (r2.error) throw new Error("สร้างบัญชีแล้วแต่บันทึกโปรไฟล์ไม่สำเร็จ: " + r2.error.message);
+          flash("✅ สร้างบัญชี " + email + " แล้ว");
+          if (needConfirm) el.usErr.textContent = "⚠️ ผู้ใช้ต้องกดยืนยันลิงก์ในอีเมลก่อนถึงจะล็อกอินได้";
+          el.usForm.reset();
+          loadAll();
+        });
+      })
+      .catch(function (err) { el.usErr.textContent = err.message; })
+      .then(function () {
+        el.usSubmitBtn.disabled = false;
+        el.usSubmitBtn.textContent = "สร้างบัญชี";
+      });
+  });
+
   // ---------- tabs / theme / init ----------
   function switchTab(tab) {
     activeTab = tab;
     document.querySelectorAll(".tabs button").forEach(function (b) {
       b.classList.toggle("active", b.getAttribute("data-tab") === tab);
     });
-    ["dashboard", "contacts", "deals", "activities", "tasks"].forEach(function (t) {
+    ["dashboard", "contacts", "deals", "activities", "tasks", "users"].forEach(function (t) {
       $("tab-" + t).hidden = (t !== tab);
     });
   }
@@ -1366,7 +1661,18 @@
     return '<option value="' + t + '">' + ACT_INFO[t].label + "</option>";
   }).join("");
   initStageSelect();
-  loadAll();
+
+  if (!sb) {
+    el.loginErr.textContent = "โหลดไลบรารี Supabase ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วรีเฟรช";
+  } else {
+    sb.auth.getSession().then(function (r) {
+      handleSession(r.data ? r.data.session : null);
+    });
+    sb.auth.onAuthStateChange(function (event, s) {
+      if (event === "SIGNED_OUT") handleSession(null);
+      if (event === "TOKEN_REFRESHED" && s) session = s;
+    });
+  }
 })();
 </script>
 </body>
