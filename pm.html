@@ -346,6 +346,11 @@
       <input id="pmDate" type="date">
     </div>
     <div class="field">
+      <label for="pmTech">ช่างที่ไปทำ PM</label>
+      <input id="pmTech" list="techList" placeholder="เช่น ช่างต้น, ช่างบอย (ใส่หลายคนคั่นด้วยจุลภาค)">
+      <datalist id="techList"></datalist>
+    </div>
+    <div class="field">
       <label for="pmNote">งานที่ทำ / อะไหล่ที่เปลี่ยน (ไม่บังคับ)</label>
       <textarea id="pmNote" rows="3" placeholder="เช่น ล้างหัวฉีด เปลี่ยนไส้กรอง เติมน้ำยา"></textarea>
     </div>
@@ -400,7 +405,8 @@
     fModel: $("fModel"), fAddress: $("fAddress"), fLastPM: $("fLastPM"), fCycle: $("fCycle"),
     fNote: $("fNote"), fErr: $("fErr"), custCancelBtn: $("custCancelBtn"),
     pmOverlay: $("pmOverlay"), pmSheet: $("pmSheet"), pmForm: $("pmForm"),
-    pmDate: $("pmDate"), pmNote: $("pmNote"), pmCancelBtn: $("pmCancelBtn"),
+    pmDate: $("pmDate"), pmTech: $("pmTech"), techList: $("techList"),
+    pmNote: $("pmNote"), pmCancelBtn: $("pmCancelBtn"),
     toast: $("toast")
   };
 
@@ -555,6 +561,7 @@
       : hist.map(function (h) {
           return '<div class="hist-item"><div class="dot"></div><div>' +
             '<div class="d">' + fmtThai(h.date) + "</div>" +
+            (h.tech ? '<div class="n">🧑‍🔧 ช่าง: ' + esc(h.tech) + "</div>" : "") +
             (h.note ? '<div class="n">' + esc(h.note) + "</div>" : "") +
             "</div></div>";
         }).join("");
@@ -646,9 +653,35 @@
   });
 
   // ---------- ฟอร์มบันทึก PM ----------
+  function allTechNames() {
+    // รวมชื่อช่างที่เคยกรอกจากประวัติทุกลูกค้า (แยกชื่อที่คั่นด้วยจุลภาค)
+    var set = {};
+    customers.forEach(function (c) {
+      (c.history || []).forEach(function (h) {
+        String(h.tech || "").split(",").forEach(function (t) {
+          t = t.trim();
+          if (t) set[t] = true;
+        });
+      });
+    });
+    return Object.keys(set).sort(function (a, b) { return a.localeCompare(b, "th"); });
+  }
+  function lastTechUsed() {
+    var best = null;
+    customers.forEach(function (c) {
+      (c.history || []).forEach(function (h) {
+        if (h.tech && (!best || h.date > best.date)) best = h;
+      });
+    });
+    return best ? best.tech : "";
+  }
   function openPmSheet() {
     el.pmDate.value = todayStr();
+    el.pmTech.value = lastTechUsed();  // เติมชื่อช่างครั้งล่าสุดให้ แก้ได้
     el.pmNote.value = "";
+    el.techList.innerHTML = allTechNames().map(function (t) {
+      return '<option value="' + t.replace(/"/g, "&quot;") + '"></option>';
+    }).join("");
     el.pmOverlay.classList.add("show");
     el.pmSheet.classList.add("show");
   }
@@ -666,7 +699,7 @@
     if (!c) { closePmSheet(); return; }
     var date = el.pmDate.value || todayStr();
     if (!c.history) c.history = [];
-    c.history.push({ date: date, note: el.pmNote.value.trim() });
+    c.history.push({ date: date, note: el.pmNote.value.trim(), tech: el.pmTech.value.trim() });
     c.lastPM = date;   // เริ่มนับรอบใหม่
     saveCustomers();
     closePmSheet();
