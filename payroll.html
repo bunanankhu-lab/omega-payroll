@@ -2693,9 +2693,10 @@
       "<div><span>ผู้ประสานงาน:</span>" + escapeHtml(f.coordinator || "—") + "</div>" +
       "<div><span>สถานะปัจจุบัน:</span>" + (FO_STATUS[f.status] || FO_STATUS.draft).label + "</div>" +
     "</div>" +
-    '<div class="fp-job"><div class="lb">ประเภทงาน / เครื่อง</div>' + escapeHtml(f.jobDesc || "—") +
-      (f.machineModel ? " · ยี่ห้อ/รุ่น: " + escapeHtml(f.machineModel) : "") +
-      (f.machineSerial ? " · S/N: " + escapeHtml(f.machineSerial) : "") + "</div>" +
+    '<div class="fp-job"><div class="lb">ประเภทงาน / เครื่อง</div>' +
+      "<div>" + escapeHtml(f.jobDesc || "—") + "</div>" +
+      (f.machineModel ? "<div>ยี่ห้อ/รุ่น: " + escapeHtml(f.machineModel) + "</div>" : "") +
+      (f.machineSerial ? "<div>S/N: " + escapeHtml(f.machineSerial) + "</div>" : "") + "</div>" +
     (f.note ? '<div class="fp-note">หมายเหตุ: ' + escapeHtml(f.note) + "</div>" : "");
   }
   function foItemsTableHtml(f, withCheck) {
