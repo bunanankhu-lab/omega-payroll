@@ -681,6 +681,11 @@
   var SUPABASE_KEY = "sb_publishable_47xRsvJMYfqk1XSlW6qjaQ_8ABKblB5";
   var THEME_KEY = "omega_payroll_theme"; // ใช้คีย์เดียวกับหน้าเงินเดือน ให้ธีมตรงกันทั้งเว็บ
 
+  // ⚠️ โหมดทดสอบ: ข้ามหน้าล็อกอินชั่วคราว (ทุกคนที่มีลิงก์เข้าได้ เห็นข้อมูลทั้งหมดแบบ ADMIN)
+  // ต้องปิด RLS ควบคู่ด้วย — รันไฟล์ supabase-crm-testmode.sql ใน Supabase
+  // เปิดระบบล็อกอินกลับ: เปลี่ยนเป็น false + รันส่วน "เปิด RLS กลับ" ในไฟล์เดียวกัน
+  var DEV_BYPASS_LOGIN = true;
+
   var STAGES = ["LEAD", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
   var STAGE_INFO = {
     LEAD:        { label: "ลูกค้าเป้าหมาย",  color: "#8A8378" },
@@ -792,6 +797,7 @@
   function contactById(id) { return contacts.find(function (c) { return c.id === id; }) || null; }
   function dealById(id) { return deals.find(function (d) { return d.id === id; }) || null; }
   function isAdmin() { return myProfile && myProfile.role === "ADMIN"; }
+  function uid() { return session ? session.user.id : null; }
   function ownerName(id) {
     var p = profiles.find(function (x) { return x.id === id; });
     return p ? (p.name || p.email) : "";
@@ -843,6 +849,7 @@
   }
 
   function handleSession(s) {
+    if (DEV_BYPASS_LOGIN) return;
     session = s;
     if (!s) { myProfile = null; showLogin(); return; }
     sb.from("crm_profiles").select("*").eq("id", s.user.id).maybeSingle().then(function (r) {
@@ -885,7 +892,7 @@
 
   // ---------- data ----------
   function loadAll() {
-    if (!sb || !session) return Promise.resolve();
+    if (!sb || (!session && !DEV_BYPASS_LOGIN)) return Promise.resolve();
     return Promise.all([
       sb.from("crm_contacts").select("*").order("created_at", { ascending: false }),
       sb.from("crm_deals").select("*").order("created_at", { ascending: false }),
@@ -1100,7 +1107,7 @@
       address: el.ctAddress.value.trim(), tags: el.ctTags.value.trim()
     };
     if (!data.name) { el.ctErr.textContent = "กรุณาระบุชื่อลูกค้า"; return; }
-    if (!editingContactId) data.owner_id = session.user.id;
+    if (!editingContactId) data.owner_id = uid();
     el.ctSubmitBtn.disabled = true;
     var op = editingContactId
       ? sb.from("crm_contacts").update(data).eq("id", editingContactId)
@@ -1248,7 +1255,7 @@
       if (header.indexOf("name") === -1) { flash("⚠️ ไม่พบคอลัมน์ name/ชื่อ ในไฟล์ CSV"); return; }
       var items = [];
       rows.slice(1).forEach(function (r) {
-        var o = { name: "", phone: "", email: "", company: "", position: "", address: "", tags: "", owner_id: session.user.id };
+        var o = { name: "", phone: "", email: "", company: "", position: "", address: "", tags: "", owner_id: uid() };
         header.forEach(function (k, i) { if (k) o[k] = (r[i] || "").trim(); });
         if (o.name) items.push(o);
       });
@@ -1374,7 +1381,7 @@
       notes: el.dlNotes.value.trim(),
       closed_at: closed ? ((prev && prev.stage === stage && prev.closed_at) || new Date().toISOString()) : null
     };
-    if (!editingDealId) data.owner_id = session.user.id;
+    if (!editingDealId) data.owner_id = uid();
     el.dlSubmitBtn.disabled = true;
     var op = editingDealId
       ? sb.from("crm_deals").update(data).eq("id", editingDealId)
@@ -1460,7 +1467,7 @@
     var data = {
       type: el.acType.value, title: title, detail: el.acDetail.value.trim(),
       contact_id: el.acContact.value || null, deal_id: el.acDeal.value || null,
-      owner_id: session.user.id
+      owner_id: uid()
     };
     sb.from("crm_activities").insert(data).then(function (r) {
       if (r.error) { dbErr("บันทึกกิจกรรมไม่สำเร็จ", r.error); return; }
@@ -1537,7 +1544,7 @@
     var data = {
       title: title, due_date: el.tkDue.value || null,
       contact_id: el.tkContact.value || null, deal_id: el.tkDeal.value || null,
-      owner_id: session.user.id
+      owner_id: uid()
     };
     sb.from("crm_tasks").insert(data).then(function (r) {
       if (r.error) { dbErr("บันทึกงานไม่สำเร็จ", r.error); return; }
@@ -1551,7 +1558,7 @@
   function renderUsers() {
     el.usCount.textContent = "(" + profiles.length + ")";
     el.usBody.innerHTML = profiles.map(function (p) {
-      var self = p.id === session.user.id;
+      var self = p.id === uid();
       return "<tr>" +
         "<td>" + esc(p.email) + (self ? ' <span class="hint">(คุณ)</span>' : "") + "</td>" +
         "<td>" + (esc(p.name) || "-") + "</td>" +
@@ -1664,6 +1671,14 @@
 
   if (!sb) {
     el.loginErr.textContent = "โหลดไลบรารี Supabase ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วรีเฟรช";
+  } else if (DEV_BYPASS_LOGIN) {
+    // โหมดทดสอบ: เข้าใช้ได้เลยแบบ ADMIN โดยไม่ต้องล็อกอิน
+    myProfile = { id: null, email: "", name: "โหมดทดสอบ", role: "ADMIN" };
+    el.userChip.innerHTML = '🧪 <b>โหมดทดสอบ</b> <span class="badge role-admin">ไม่ล็อกอิน</span>';
+    el.usersTabBtn.hidden = false;
+    el.logoutBtn.hidden = true;
+    showApp();
+    loadAll();
   } else {
     sb.auth.getSession().then(function (r) {
       handleSession(r.data ? r.data.session : null);
