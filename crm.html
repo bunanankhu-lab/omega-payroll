@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบ CRM ลูกค้าสัมพันธ์ · บริษัทโอเมก้าอีสาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* ธีม Quiet Luxury — ชุดเดียวกับหน้าเงินเดือน (index.html) */
+    --bg: #FBF9F6;
+    --bg-soft: #F3EFE8;
+    --card: rgba(255, 255, 255, 0.72);
+    --card-solid: #ffffff;
+    --text: #1C1C1C;
+    --muted: #7A736A;
+    --border: rgba(28, 28, 28, 0.10);
+    --border-glow: rgba(163, 138, 94, 0.32);
+    --income: #5E7C5A;
+    --income-bg: rgba(94, 124, 90, 0.10);
+    --expense: #A85C5C;
+    --expense-bg: rgba(168, 92, 92, 0.10);
+    --balance: #8A7A5E;
+    --primary: #A38A5E;
+    --primary-hover: #8E754A;
+    --primary-grad: linear-gradient(135deg, #A38A5E 0%, #8E754A 100%);
+    --accent: #A38A5E;
+    --warn-bg: rgba(180, 142, 60, 0.12);
+    --warn: #B48E3C;
+    --radius: 16px;
+    --radius-lg: 20px;
+    --shadow: 0 1px 2px rgba(28,28,28,.04), 0 8px 28px rgba(120,100,70,.08);
+    --shadow-md: 0 4px 12px rgba(28,28,28,.06), 0 18px 44px rgba(120,100,70,.12);
+    --ring: 0 0 0 3px rgba(163,138,94,.22);
+    --blur: blur(10px);
+  }
+  html[data-theme="midnight"] {
+    --bg: #0B0F19;
+    --bg-soft: #131826;
+    --card: rgba(22, 28, 42, 0.62);
+    --card-solid: #161c2a;
+    --text: #E2E8F0;
+    --muted: #94A0B4;
+    --border: rgba(226, 232, 240, 0.08);
+    --border-glow: rgba(212, 175, 55, 0.30);
+    --income: #7FB08A;
+    --income-bg: rgba(127, 176, 138, 0.12);
+    --expense: #D08A8A;
+    --expense-bg: rgba(208, 138, 138, 0.12);
+    --balance: #D4AF37;
+    --primary: #D4AF37;
+    --primary-hover: #E0BE54;
+    --primary-grad: linear-gradient(135deg, #D4AF37 0%, #B8942A 100%);
+    --accent: #D4AF37;
+    --warn-bg: rgba(212, 175, 55, 0.12);
+    --warn: #D4AF37;
+    --shadow: 0 1px 2px rgba(0,0,0,.35), 0 10px 36px rgba(0,0,0,.45);
+    --shadow-md: 0 4px 10px rgba(0,0,0,.45), 0 18px 50px rgba(0,0,0,.55);
+    --ring: 0 0 0 3px rgba(212,175,55,.22);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "IBM Plex Sans Thai", "Noto Sans Thai", "Segoe UI", Tahoma, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.55;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    transition: background .2s, color .2s; min-height: 100vh; position: relative;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background-image:
+      linear-gradient(var(--border-glow) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-glow) 1px, transparent 1px);
+    background-size: 60px 60px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 80%);
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 80%);
+    opacity: .18;
+  }
+  body::after {
+    content: ""; position: fixed; inset: 0; z-index: -3; pointer-events: none;
+    background:
+      radial-gradient(42% 38% at 12% 6%, rgba(163,138,94,.14), transparent 72%),
+      radial-gradient(40% 36% at 88% 4%, rgba(184,158,114,.12), transparent 72%),
+      radial-gradient(48% 42% at 80% 94%, rgba(163,138,94,.10), transparent 74%);
+    filter: blur(10px);
+  }
+  .app { max-width: 1140px; margin: 0 auto; padding: 30px 22px 72px; position: relative; z-index: 1; }
+
+  header.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+  header.top h1 {
+    font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 10px; font-weight: 700;
+    background: linear-gradient(120deg, var(--text), var(--accent)); -webkit-background-clip: text;
+    background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  header.top .sub { color: var(--muted); font-size: .85rem; margin-top: 2px; }
+  .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .theme-btn {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 9px 14px; cursor: pointer; font-size: .9rem; font-family: inherit;
+    box-shadow: var(--shadow); transition: transform .1s; white-space: nowrap;
+    text-decoration: none; display: inline-block;
+  }
+  .theme-btn:active { transform: scale(.96); }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo { height: 54px; width: auto; display: block; background: #fff; border: 1px solid var(--border); border-radius: 11px; padding: 5px 9px; box-shadow: var(--shadow); }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+  .tabs button {
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 999px; padding: 10px 18px; cursor: pointer; font-size: .92rem;
+    font-weight: 600; font-family: inherit; box-shadow: var(--shadow); transition: all .15s;
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  }
+  .tabs button:hover { color: var(--text); border-color: var(--border-glow); transform: translateY(-1px); }
+  .tabs button.active {
+    background: var(--primary-grad); color: #fff; border-color: transparent;
+    box-shadow: 0 4px 14px rgba(163,138,94,.32); transform: translateY(-1px);
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; align-items: start; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    transition: box-shadow .25s, transform .25s, border-color .25s;
+  }
+  .card::before {
+    content: ""; position: absolute; top: 0; left: 18px; right: 18px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-glow), transparent);
+  }
+  .card:hover { box-shadow: var(--shadow-md); border-color: var(--border-glow); }
+  .card + .card { margin-top: 20px; }
+  .card h2 { font-size: 1.08rem; font-weight: 700; margin: 0 0 18px; display: flex; align-items: center; gap: 8px; }
+  .card-sub { color: var(--muted); font-size: .85rem; margin: -10px 0 14px; }
+
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: .85rem; color: var(--muted); margin-bottom: 6px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  input, select, textarea {
+    width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 10px;
+    font-family: inherit; font-size: .95rem; background: var(--bg); color: var(--text);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: var(--ring); }
+  textarea { resize: vertical; min-height: 64px; }
+
+  .submit-btn {
+    width: 100%; padding: 13px; border: none; border-radius: 12px; cursor: pointer;
+    background: var(--primary-grad); color: #fff; font-size: 1rem; font-weight: 600;
+    font-family: inherit; margin-top: 4px; box-shadow: 0 6px 18px rgba(163,138,94,.32);
+    position: relative; overflow: hidden; isolation: isolate;
+    transition: box-shadow .25s, transform .2s, filter .25s;
+  }
+  .submit-btn::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%);
+    transform: translateX(-120%); transition: transform .6s ease;
+  }
+  .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(163,138,94,.42); filter: brightness(1.04); }
+  .submit-btn:hover::before { transform: translateX(120%); }
+  .submit-btn:active { transform: translateY(0); }
+  .submit-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; transform: none; }
+  .btn-secondary {
+    width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 11px; cursor: pointer;
+    background: var(--card); color: var(--muted); font-size: .92rem; font-weight: 600;
+    font-family: inherit; margin-top: 8px;
+  }
+  .btn-secondary:hover { color: var(--text); border-color: var(--primary); }
+  .err { color: var(--expense); font-size: .82rem; margin-top: 8px; min-height: 18px; }
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 14px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+  tbody tr { transition: background .12s; }
+  tbody tr:hover { background: var(--bg-soft); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .76rem; font-weight: 600; }
+  .icon-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 8px; padding: 5px 10px; cursor: pointer; font-size: .82rem; font-family: inherit; transition: all .12s;
+  }
+  .icon-btn:hover { border-color: var(--primary); color: var(--text); }
+  .icon-btn.danger:hover { border-color: var(--expense); color: var(--expense); background: var(--expense-bg); }
+  .empty { color: var(--muted); text-align: center; padding: 34px 10px; font-size: .92rem; }
+  .save-bar { display: flex; align-items: center; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .save-bar .submit-btn { width: auto; padding: 12px 22px; margin: 0; }
+  .save-bar .btn-secondary { width: auto; padding: 11px 18px; margin: 0; }
+  .hint { color: var(--muted); font-size: .78rem; }
+  .note-box { background: var(--warn-bg); color: var(--warn); border-radius: 10px; padding: 12px 14px; font-size: .85rem; margin-bottom: 14px; }
+  .link { color: var(--primary); cursor: pointer; text-decoration: none; font-weight: 600; }
+  .link:hover { text-decoration: underline; }
+
+  .filter-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-row input, .filter-row select { width: auto; padding: 9px 12px; font-size: .9rem; }
+  .filter-row input { flex: 1; min-width: 160px; }
+  .filter-row select { min-width: 140px; cursor: pointer; }
+  .chip-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .chip {
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer; font-size: .84rem; font-weight: 600; font-family: inherit;
+  }
+  .chip.active { background: var(--primary-grad); color: #fff; border-color: transparent; }
+  .tag-chip { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: .74rem; font-weight: 600; background: var(--warn-bg); color: var(--balance); margin: 1px 3px 1px 0; }
+
+  /* dashboard */
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 18px; }
+  .dash-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px;
+    box-shadow: var(--shadow); position: relative; overflow: hidden;
+    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    transition: transform .25s, box-shadow .25s, border-color .25s;
+  }
+  .dash-card::after {
+    content: ""; position: absolute; top: -40%; right: -20%; width: 120px; height: 120px;
+    background: radial-gradient(circle, rgba(163,138,94,.16), transparent 70%); pointer-events: none;
+  }
+  .dash-card:hover { transform: translateY(-2px); border-color: var(--border-glow); box-shadow: var(--shadow-md); }
+  .dash-card .dlabel { font-size: .82rem; color: var(--muted); margin-bottom: 8px; }
+  .dash-card .dval { font-size: 1.5rem; font-weight: 700; word-break: break-all; letter-spacing: .01em; }
+  .dash-card .dsub { font-size: .78rem; color: var(--muted); margin-top: 4px; }
+  .dash-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .dash-bar {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 18px;
+    box-shadow: var(--shadow); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  }
+  .dash-bar h3 { margin: 0 0 14px; font-size: 1rem; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: .88rem; }
+  .bar-row .bname { width: 90px; flex-shrink: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-row .btrack { flex: 1; background: var(--bg-soft); border-radius: 8px; height: 22px; overflow: hidden; border: 1px solid var(--border); }
+  .bar-row .bfill { height: 100%; background: var(--primary-grad); border-radius: 8px; min-width: 2px; transition: width .5s cubic-bezier(.22,1,.36,1); }
+  .bar-row .bval { width: 105px; flex-shrink: 0; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .donut-wrap { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+  .donut { width: 160px; height: 160px; border-radius: 50%; position: relative; flex-shrink: 0; }
+  .donut::after {
+    content: ""; position: absolute; inset: 34px; border-radius: 50%;
+    background: var(--card-solid); border: 1px solid var(--border);
+  }
+  .donut .donut-total {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 1; font-weight: 700; font-size: 1.25rem;
+  }
+  .donut .donut-total small { font-size: .72rem; color: var(--muted); font-weight: 500; }
+  .legend { flex: 1; min-width: 150px; }
+  .legend .lg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: .86rem; }
+  .legend .lg-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .legend .lg-count { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .mini-list .mini-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+  .mini-list .mini-row:last-child { border-bottom: none; }
+  .mini-list .mi-main { min-width: 0; }
+  .mini-list .mi-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mini-list .mi-sub { font-size: .78rem; color: var(--muted); }
+  .mini-list .mi-right { flex-shrink: 0; text-align: right; font-size: .82rem; }
+  .overdue-text { color: var(--expense); font-weight: 700; }
+
+  /* kanban */
+  .kanban { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px; }
+  .kb-col {
+    width: 245px; flex-shrink: 0; background: var(--bg-soft); border: 1px solid var(--border);
+    border-radius: 14px; display: flex; flex-direction: column; transition: border-color .15s, box-shadow .15s;
+  }
+  .kb-col.dragover { border-color: var(--primary); box-shadow: var(--ring); }
+  .kb-head { padding: 12px 14px 10px; border-bottom: 1px solid var(--border); }
+  .kb-head .kb-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: .9rem; }
+  .kb-head .kb-count { margin-left: auto; background: var(--card-solid); border: 1px solid var(--border); border-radius: 999px; padding: 1px 9px; font-size: .74rem; color: var(--muted); font-weight: 600; }
+  .kb-head .kb-sum { font-size: .78rem; color: var(--balance); font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kb-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .kb-cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; min-height: 90px; flex: 1; }
+  .kb-card {
+    background: var(--card-solid); border: 1px solid var(--border); border-radius: 12px; padding: 12px;
+    cursor: grab; box-shadow: var(--shadow); transition: border-color .15s, transform .15s;
+  }
+  .kb-card:hover { border-color: var(--border-glow); transform: translateY(-1px); }
+  .kb-card:active { cursor: grabbing; }
+  .kb-card .kc-title { font-weight: 600; font-size: .88rem; line-height: 1.4; }
+  .kb-card .kc-contact { font-size: .76rem; color: var(--muted); margin-top: 3px; }
+  .kb-card .kc-row { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+  .kb-card .kc-value { font-weight: 700; color: var(--balance); font-size: .9rem; font-variant-numeric: tabular-nums; }
+  .kb-card .kc-prob { font-size: .74rem; color: var(--muted); }
+  .kb-card .kc-date { font-size: .74rem; color: var(--muted); margin-top: 4px; }
+
+  /* tasks */
+  .task-row { display: flex; align-items: flex-start; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); }
+  .task-row:last-child { border-bottom: none; }
+  .task-row.overdue { background: var(--expense-bg); margin: 0 -12px; padding-left: 12px; padding-right: 12px; border-radius: 10px; }
+  .task-row input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--primary); cursor: pointer; flex-shrink: 0; }
+  .task-row .tk-main { flex: 1; min-width: 0; }
+  .task-row .tk-title { font-weight: 600; font-size: .92rem; }
+  .task-row.done-row .tk-title { text-decoration: line-through; color: var(--muted); font-weight: 400; }
+  .task-row .tk-sub { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .task-row .tk-right { flex-shrink: 0; text-align: right; font-size: .8rem; display: flex; align-items: center; gap: 8px; }
+
+  /* activities */
+  .act-row { display: flex; align-items: flex-start; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .act-row:last-child { border-bottom: none; }
+  .act-row .ac-main { flex: 1; min-width: 0; }
+  .act-row .ac-title { font-weight: 600; font-size: .92rem; }
+  .act-row .ac-detail { font-size: .85rem; color: var(--muted); margin-top: 2px; white-space: pre-wrap; }
+  .act-row .ac-sub { font-size: .78rem; margin-top: 4px; color: var(--muted); }
+  .act-row .ac-right { flex-shrink: 0; text-align: right; font-size: .78rem; color: var(--muted); display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+  /* contact detail */
+  .detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .detail-head h2 { margin: 0; }
+  .detail-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px 20px; font-size: .9rem; margin-bottom: 6px; }
+  .detail-info span { color: var(--muted); }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
+    background: var(--income); color: #fff; padding: 12px 20px; border-radius: 12px;
+    font-weight: 600; box-shadow: 0 8px 28px rgba(0,0,0,.25); opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s; z-index: 50; max-width: 90vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 820px) {
+    .grid { grid-template-columns: 1fr; }
+    .dash-two { grid-template-columns: 1fr; }
+    .row2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <img src="logo.png" alt="โลโก้บริษัท" class="logo">
+      <div>
+        <h1>🤝 ระบบ CRM ลูกค้าสัมพันธ์</h1>
+        <div class="sub">บริษัทโอเมก้าอีสาน — ลูกค้า · ดีล · กิจกรรม · งาน</div>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a class="theme-btn" href="index.html">🧮 หน้าเงินเดือน</a>
+      <button type="button" class="theme-btn" id="themeBtn">🌙 โหมดมืด</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button type="button" class="active" data-tab="dashboard">📊 ภาพรวม</button>
+    <button type="button" data-tab="contacts">👥 ลูกค้า</button>
+    <button type="button" data-tab="deals">💼 ดีล</button>
+    <button type="button" data-tab="activities">📞 กิจกรรม</button>
+    <button type="button" data-tab="tasks">✅ งาน</button>
+  </nav>
+
+  <div id="tablesErr" class="note-box" hidden>
+    ⚠️ ยังไม่พบตาราง CRM ในฐานข้อมูล — เปิด Supabase Dashboard → SQL Editor แล้วรันไฟล์ <b>supabase-crm.sql</b> ก่อน จากนั้นรีเฟรชหน้านี้
+  </div>
+
+  <!-- ==================== ภาพรวม ==================== -->
+  <section class="tab-panel" id="tab-dashboard">
+    <div class="dash-grid">
+      <div class="dash-card"><div class="dlabel">💰 ยอดขายเดือนนี้</div><div class="dval" id="dashSales">฿0</div><div class="dsub">จากดีลที่ปิดสำเร็จ</div></div>
+      <div class="dash-card"><div class="dlabel">💼 ดีลที่เปิดอยู่</div><div class="dval" id="dashOpen">0 ดีล</div><div class="dsub" id="dashOpenVal">มูลค่ารวม ฿0</div></div>
+      <div class="dash-card"><div class="dlabel">🏆 ดีลที่ปิดได้</div><div class="dval" id="dashWon">0 ดีล</div><div class="dsub">ทั้งหมดที่ปิดสำเร็จ</div></div>
+      <div class="dash-card"><div class="dlabel">🎯 อัตราการปิดดีล</div><div class="dval" id="dashWinRate">0%</div><div class="dsub" id="dashWinDetail">ชนะ 0 / แพ้ 0</div></div>
+    </div>
+    <div class="dash-two">
+      <div class="dash-bar">
+        <h3>📈 ยอดขายรายเดือน (6 เดือนล่าสุด)</h3>
+        <div id="salesBars"></div>
+        <div class="empty" id="salesEmpty" hidden>ยังไม่มีดีลที่ปิดสำเร็จ</div>
+      </div>
+      <div class="dash-bar">
+        <h3>🧭 สัดส่วนดีลแต่ละขั้น</h3>
+        <div class="donut-wrap">
+          <div class="donut" id="stageDonut"><div class="donut-total" id="donutTotal">0<small>ดีล</small></div></div>
+          <div class="legend" id="stageLegend"></div>
+        </div>
+      </div>
+    </div>
+    <div class="dash-two">
+      <div class="dash-bar">
+        <h3>✅ งานที่ต้องทำวันนี้</h3>
+        <div class="mini-list" id="todayTaskList"></div>
+      </div>
+      <div class="dash-bar">
+        <h3>⏳ ดีลที่ใกล้ถึงวันปิด (30 วัน)</h3>
+        <div class="mini-list" id="closingList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== ลูกค้า ==================== -->
+  <section class="tab-panel" id="tab-contacts" hidden>
+    <div id="contactsMain">
+      <div class="grid">
+        <div class="card">
+          <h2 id="ctFormTitle">➕ เพิ่มลูกค้าใหม่</h2>
+          <form id="ctForm">
+            <div class="field"><label for="ctName">ชื่อ *</label><input id="ctName" required></div>
+            <div class="row2">
+              <div class="field"><label for="ctPhone">เบอร์โทร</label><input id="ctPhone"></div>
+              <div class="field"><label for="ctEmail">อีเมล</label><input id="ctEmail" type="email"></div>
+            </div>
+            <div class="row2">
+              <div class="field"><label for="ctCompany">บริษัท</label><input id="ctCompany"></div>
+              <div class="field"><label for="ctPosition">ตำแหน่ง</label><input id="ctPosition"></div>
+            </div>
+            <div class="field"><label for="ctAddress">ที่อยู่</label><textarea id="ctAddress" rows="2"></textarea></div>
+            <div class="field"><label for="ctTags">แท็ก (คั่นด้วยจุลภาค เช่น VIP, โรงงาน)</label><input id="ctTags"></div>
+            <button type="submit" class="submit-btn" id="ctSubmitBtn">บันทึกลูกค้า</button>
+            <button type="button" class="btn-secondary" id="ctCancelBtn" hidden>ยกเลิกการแก้ไข</button>
+            <div class="err" id="ctErr"></div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>👥 รายชื่อลูกค้า <span class="hint" id="ctCount"></span></h2>
+          <div class="filter-row">
+            <input id="ctSearch" placeholder="ค้นหาชื่อ, บริษัท, อีเมล, แท็ก...">
+            <select id="ctTagFilter"><option value="">แท็กทั้งหมด</option></select>
+          </div>
+          <div class="filter-row">
+            <button type="button" class="icon-btn" id="csvImportBtn">📥 นำเข้า CSV</button>
+            <button type="button" class="icon-btn" id="csvExportBtn">📤 ส่งออก CSV</button>
+            <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+            <span class="hint" style="align-self:center">หัวตาราง: name, phone, email, company, position, address, tags</span>
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ชื่อ</th><th>บริษัท</th><th>เบอร์โทร</th><th>แท็ก</th><th class="num">ดีล</th><th></th></tr></thead>
+              <tbody id="ctBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="ctEmpty" hidden>ยังไม่มีข้อมูลลูกค้า</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="contactDetail" hidden>
+      <div class="card">
+        <div class="detail-head">
+          <div>
+            <h2 id="cdName" style="margin-bottom:2px"></h2>
+            <div class="hint" id="cdPositionCo"></div>
+            <div id="cdTags" style="margin-top:6px"></div>
+          </div>
+          <div style="text-align:right">
+            <div class="hint">มูลค่าดีลรวม</div>
+            <div style="font-size:1.3rem;font-weight:700;color:var(--balance)" id="cdDealSum"></div>
+            <button type="button" class="icon-btn" id="cdBackBtn" style="margin-top:8px">← กลับรายชื่อ</button>
+          </div>
+        </div>
+        <div class="detail-info">
+          <div><span>📱 เบอร์โทร: </span><span id="cdPhone"></span></div>
+          <div><span>✉️ อีเมล: </span><span id="cdEmail"></span></div>
+          <div><span>📍 ที่อยู่: </span><span id="cdAddress"></span></div>
+        </div>
+      </div>
+      <div class="grid" style="margin-top:20px">
+        <div class="card">
+          <h2>💼 ดีลทั้งหมด <span class="hint" id="cdDealCount"></span></h2>
+          <div class="mini-list" id="cdDeals"></div>
+        </div>
+        <div class="card">
+          <h2>✅ งาน <span class="hint" id="cdTaskCount"></span></h2>
+          <div class="mini-list" id="cdTasks"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <h2>📜 ประวัติกิจกรรม <span class="hint" id="cdActCount"></span></h2>
+        <div id="cdActs"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== ดีล ==================== -->
+  <section class="tab-panel" id="tab-deals" hidden>
+    <div class="card" style="margin-bottom:20px">
+      <h2 id="dlFormTitle">➕ เพิ่มดีลใหม่</h2>
+      <form id="dlForm">
+        <div class="row2">
+          <div class="field"><label for="dlTitle">ชื่อดีล *</label><input id="dlTitle" required></div>
+          <div class="field"><label for="dlValue">มูลค่า (บาท)</label><input id="dlValue" type="number" min="0" step="any"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="dlContact">ลูกค้าที่เกี่ยวข้อง</label><select id="dlContact"><option value="">— ไม่ระบุ —</option></select></div>
+          <div class="field"><label for="dlStage">ขั้นตอน</label><select id="dlStage"></select></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="dlProb">ความน่าจะเป็น (%)</label><input id="dlProb" type="number" min="0" max="100" value="50"></div>
+          <div class="field"><label for="dlClose">วันที่คาดว่าจะปิด</label><input id="dlClose" type="date"></div>
+        </div>
+        <div class="field"><label for="dlNotes">โน้ต</label><textarea id="dlNotes" rows="2"></textarea></div>
+        <div class="save-bar">
+          <button type="submit" class="submit-btn" id="dlSubmitBtn">บันทึกดีล</button>
+          <button type="button" class="btn-secondary" id="dlCancelBtn" hidden>ยกเลิกการแก้ไข</button>
+          <button type="button" class="icon-btn danger" id="dlDeleteBtn" hidden>🗑 ลบดีลนี้</button>
+        </div>
+        <div class="err" id="dlErr"></div>
+      </form>
+    </div>
+    <p class="hint" style="margin:0 0 10px">💡 ลากการ์ดเพื่อย้ายดีลระหว่างขั้นตอน · คลิกการ์ดเพื่อแก้ไข</p>
+    <div class="kanban" id="kanban"></div>
+  </section>
+
+  <!-- ==================== กิจกรรม ==================== -->
+  <section class="tab-panel" id="tab-activities" hidden>
+    <div class="grid">
+      <div class="card">
+        <h2>➕ บันทึกกิจกรรม</h2>
+        <form id="acForm">
+          <div class="row2">
+            <div class="field"><label for="acType">ประเภท</label><select id="acType"></select></div>
+            <div class="field"><label for="acTitle">หัวข้อ *</label><input id="acTitle" required></div>
+          </div>
+          <div class="field"><label for="acDetail">รายละเอียด</label><textarea id="acDetail" rows="2"></textarea></div>
+          <div class="row2">
+            <div class="field"><label for="acContact">ลูกค้า</label><select id="acContact"><option value="">— ไม่ระบุ —</option></select></div>
+            <div class="field"><label for="acDeal">ดีล</label><select id="acDeal"><option value="">— ไม่ระบุ —</option></select></div>
+          </div>
+          <button type="submit" class="submit-btn" id="acSubmitBtn">บันทึกกิจกรรม</button>
+          <div class="err" id="acErr"></div>
+        </form>
+      </div>
+      <div class="card">
+        <h2>📞 กิจกรรมทั้งหมด <span class="hint" id="acCount"></span></h2>
+        <div class="chip-row" id="acFilterRow"></div>
+        <div id="acList"></div>
+        <div class="empty" id="acEmpty" hidden>ยังไม่มีกิจกรรม</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== งาน ==================== -->
+  <section class="tab-panel" id="tab-tasks" hidden>
+    <div class="grid">
+      <div class="card">
+        <h2>➕ เพิ่มงานใหม่</h2>
+        <form id="tkForm">
+          <div class="field"><label for="tkTitle">ชื่องาน *</label><input id="tkTitle" required></div>
+          <div class="field"><label for="tkDue">วันครบกำหนด</label><input id="tkDue" type="date"></div>
+          <div class="row2">
+            <div class="field"><label for="tkContact">ลูกค้า</label><select id="tkContact"><option value="">— ไม่ระบุ —</option></select></div>
+            <div class="field"><label for="tkDeal">ดีล</label><select id="tkDeal"><option value="">— ไม่ระบุ —</option></select></div>
+          </div>
+          <button type="submit" class="submit-btn" id="tkSubmitBtn">บันทึกงาน</button>
+          <div class="err" id="tkErr"></div>
+        </form>
+      </div>
+      <div>
+        <div class="card">
+          <h2>⏳ รอทำ <span class="hint" id="tkPendingCount"></span></h2>
+          <div id="tkPendingList"></div>
+          <div class="empty" id="tkPendingEmpty" hidden>ไม่มีงานค้าง 🎉</div>
+        </div>
+        <div class="card">
+          <h2>✔️ เสร็จแล้ว <span class="hint" id="tkDoneCount"></span></h2>
+          <div id="tkDoneList"></div>
+          <div class="empty" id="tkDoneEmpty" hidden>ยังไม่มีงานที่เสร็จ</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  "use strict";
+
+  var SUPABASE_URL = "https://vhrexjmzdcvlojzanvum.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_47xRsvJMYfqk1XSlW6qjaQ_8ABKblB5";
+  var THEME_KEY = "omega_payroll_theme"; // ใช้คีย์เดียวกับหน้าเงินเดือน ให้ธีมตรงกันทั้งเว็บ
+
+  var STAGES = ["LEAD", "QUALIFIED", "PROPOSAL", "NEGOTIATION", "WON", "LOST"];
+  var STAGE_INFO = {
+    LEAD:        { label: "ลูกค้าเป้าหมาย",  color: "#8A8378" },
+    QUALIFIED:   { label: "ผ่านการคัดกรอง", color: "#6E93A8" },
+    PROPOSAL:    { label: "เสนอราคา",       color: "#8A7BA8" },
+    NEGOTIATION: { label: "เจรจาต่อรอง",    color: "#B48E3C" },
+    WON:         { label: "ปิดสำเร็จ",      color: "#5E7C5A" },
+    LOST:        { label: "ปิดไม่สำเร็จ",    color: "#A85C5C" }
+  };
+  var OPEN_STAGES = ["LEAD", "QUALIFIED", "PROPOSAL", "NEGOTIATION"];
+  var ACT_TYPES = ["CALL", "MEETING", "EMAIL", "NOTE"];
+  var ACT_INFO = {
+    CALL:    { label: "📞 โทรศัพท์", color: "#6E93A8" },
+    MEETING: { label: "👥 ประชุม",   color: "#8A7BA8" },
+    EMAIL:   { label: "✉️ อีเมล",    color: "#B48E3C" },
+    NOTE:    { label: "📝 โน้ต",     color: "#8A8378" }
+  };
+  var THAI_MONTHS_S = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  var CSV_HEADER_MAP = {
+    name: "name", phone: "phone", email: "email", company: "company",
+    position: "position", address: "address", tags: "tags",
+    "ชื่อ": "name", "เบอร์โทร": "phone", "โทรศัพท์": "phone", "อีเมล": "email",
+    "บริษัท": "company", "ตำแหน่ง": "position", "ที่อยู่": "address", "แท็ก": "tags"
+  };
+
+  var sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+  // ---------- state ----------
+  var contacts = [], deals = [], activities = [], tasks = [];
+  var editingContactId = null, editingDealId = null;
+  var acFilter = "";
+  var detailContactId = null;
+  var activeTab = "dashboard";
+
+  // ---------- elements ----------
+  var $ = function (id) { return document.getElementById(id); };
+  var el = {
+    themeBtn: $("themeBtn"), toast: $("toast"), tablesErr: $("tablesErr"),
+    dashSales: $("dashSales"), dashOpen: $("dashOpen"), dashOpenVal: $("dashOpenVal"),
+    dashWon: $("dashWon"), dashWinRate: $("dashWinRate"), dashWinDetail: $("dashWinDetail"),
+    salesBars: $("salesBars"), salesEmpty: $("salesEmpty"),
+    stageDonut: $("stageDonut"), donutTotal: $("donutTotal"), stageLegend: $("stageLegend"),
+    todayTaskList: $("todayTaskList"), closingList: $("closingList"),
+    contactsMain: $("contactsMain"), contactDetail: $("contactDetail"),
+    ctForm: $("ctForm"), ctFormTitle: $("ctFormTitle"), ctName: $("ctName"), ctPhone: $("ctPhone"),
+    ctEmail: $("ctEmail"), ctCompany: $("ctCompany"), ctPosition: $("ctPosition"),
+    ctAddress: $("ctAddress"), ctTags: $("ctTags"), ctSubmitBtn: $("ctSubmitBtn"),
+    ctCancelBtn: $("ctCancelBtn"), ctErr: $("ctErr"), ctSearch: $("ctSearch"),
+    ctTagFilter: $("ctTagFilter"), ctBody: $("ctBody"), ctEmpty: $("ctEmpty"), ctCount: $("ctCount"),
+    csvImportBtn: $("csvImportBtn"), csvExportBtn: $("csvExportBtn"), csvFile: $("csvFile"),
+    cdName: $("cdName"), cdPositionCo: $("cdPositionCo"), cdTags: $("cdTags"),
+    cdDealSum: $("cdDealSum"), cdBackBtn: $("cdBackBtn"), cdPhone: $("cdPhone"),
+    cdEmail: $("cdEmail"), cdAddress: $("cdAddress"), cdDeals: $("cdDeals"),
+    cdDealCount: $("cdDealCount"), cdTasks: $("cdTasks"), cdTaskCount: $("cdTaskCount"),
+    cdActs: $("cdActs"), cdActCount: $("cdActCount"),
+    dlForm: $("dlForm"), dlFormTitle: $("dlFormTitle"), dlTitle: $("dlTitle"), dlValue: $("dlValue"),
+    dlContact: $("dlContact"), dlStage: $("dlStage"), dlProb: $("dlProb"), dlClose: $("dlClose"),
+    dlNotes: $("dlNotes"), dlSubmitBtn: $("dlSubmitBtn"), dlCancelBtn: $("dlCancelBtn"),
+    dlDeleteBtn: $("dlDeleteBtn"), dlErr: $("dlErr"), kanban: $("kanban"),
+    acForm: $("acForm"), acType: $("acType"), acTitle: $("acTitle"), acDetail: $("acDetail"),
+    acContact: $("acContact"), acDeal: $("acDeal"), acErr: $("acErr"),
+    acFilterRow: $("acFilterRow"), acList: $("acList"), acEmpty: $("acEmpty"), acCount: $("acCount"),
+    tkForm: $("tkForm"), tkTitle: $("tkTitle"), tkDue: $("tkDue"), tkContact: $("tkContact"),
+    tkDeal: $("tkDeal"), tkErr: $("tkErr"),
+    tkPendingList: $("tkPendingList"), tkPendingEmpty: $("tkPendingEmpty"), tkPendingCount: $("tkPendingCount"),
+    tkDoneList: $("tkDoneList"), tkDoneEmpty: $("tkDoneEmpty"), tkDoneCount: $("tkDoneCount")
+  };
+
+  // ---------- helpers ----------
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function fmt(n) { return "฿" + (Number(n) || 0).toLocaleString("th-TH", { maximumFractionDigits: 0 }); }
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function fmtDate(s) {
+    if (!s) return "-";
+    var d = new Date(s);
+    if (isNaN(d)) return "-";
+    return d.getDate() + " " + THAI_MONTHS_S[d.getMonth()] + " " + (d.getFullYear() + 543);
+  }
+  function fmtDateTime(s) {
+    if (!s) return "-";
+    var d = new Date(s);
+    if (isNaN(d)) return "-";
+    return fmtDate(s) + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function splitTags(t) {
+    return String(t || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+  }
+  function dateOnly(s) { return String(s || "").slice(0, 10); }
+  function isOverdue(t) { return !t.done && t.due_date && dateOnly(t.due_date) < todayStr(); }
+  function isDueToday(t) { return t.due_date && dateOnly(t.due_date) === todayStr(); }
+  function contactById(id) { return contacts.find(function (c) { return c.id === id; }) || null; }
+  function dealById(id) { return deals.find(function (d) { return d.id === id; }) || null; }
+  var toastTimer = null;
+  function flash(msg) {
+    el.toast.textContent = msg; el.toast.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.toast.classList.remove("show"); }, 2600);
+  }
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    el.themeBtn.textContent = theme === "midnight" ? "☀️ โหมดสว่าง" : "🌙 โหมดมืด";
+    try { localStorage.setItem(THEME_KEY, theme); } catch (e) {}
+  }
+  function dbErr(prefix, error) {
+    console.error(prefix, error);
+    var m = (error && error.message) || "ไม่ทราบสาเหตุ";
+    if (/schema cache|does not exist/i.test(m)) { el.tablesErr.hidden = false; }
+    flash("⚠️ " + prefix + ": " + m);
+  }
+
+  // ---------- data ----------
+  function loadAll() {
+    if (!sb) { flash("⚠️ โหลดไลบรารี Supabase ไม่สำเร็จ — ตรวจอินเทอร์เน็ตแล้วรีเฟรช"); return Promise.resolve(); }
+    return Promise.all([
+      sb.from("crm_contacts").select("*").order("created_at", { ascending: false }),
+      sb.from("crm_deals").select("*").order("created_at", { ascending: false }),
+      sb.from("crm_activities").select("*").order("created_at", { ascending: false }),
+      sb.from("crm_tasks").select("*").order("due_date", { ascending: true, nullsFirst: false })
+    ]).then(function (rs) {
+      var names = ["ลูกค้า", "ดีล", "กิจกรรม", "งาน"];
+      for (var i = 0; i < rs.length; i++) {
+        if (rs[i].error) { dbErr("โหลดข้อมูล" + names[i] + "ไม่สำเร็จ", rs[i].error); return; }
+      }
+      el.tablesErr.hidden = true;
+      contacts = rs[0].data || [];
+      deals = rs[1].data || [];
+      activities = rs[2].data || [];
+      tasks = rs[3].data || [];
+      renderAll();
+    });
+  }
+
+  function renderAll() {
+    renderSelects();
+    renderDashboard();
+    renderContacts();
+    renderKanban();
+    renderActivities();
+    renderTasks();
+    if (detailContactId) renderContactDetail(detailContactId);
+  }
+
+  // ---------- selects ----------
+  function contactOptions(selected) {
+    var h = '<option value="">— ไม่ระบุ —</option>';
+    contacts.slice().sort(function (a, b) { return a.name.localeCompare(b.name, "th"); }).forEach(function (c) {
+      h += '<option value="' + c.id + '"' + (c.id === selected ? " selected" : "") + ">" +
+        esc(c.name) + (c.company ? " (" + esc(c.company) + ")" : "") + "</option>";
+    });
+    return h;
+  }
+  function dealOptions(selected) {
+    var h = '<option value="">— ไม่ระบุ —</option>';
+    deals.forEach(function (d) {
+      h += '<option value="' + d.id + '"' + (d.id === selected ? " selected" : "") + ">" + esc(d.title) + "</option>";
+    });
+    return h;
+  }
+  function renderSelects() {
+    el.dlContact.innerHTML = contactOptions(el.dlContact.value);
+    el.acContact.innerHTML = contactOptions(el.acContact.value);
+    el.tkContact.innerHTML = contactOptions(el.tkContact.value);
+    el.acDeal.innerHTML = dealOptions(el.acDeal.value);
+    el.tkDeal.innerHTML = dealOptions(el.tkDeal.value);
+  }
+
+  // ---------- dashboard ----------
+  function renderDashboard() {
+    var now = new Date();
+    var monthKeyNow = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+
+    var wonDeals = deals.filter(function (d) { return d.stage === "WON"; });
+    var lostCount = deals.filter(function (d) { return d.stage === "LOST"; }).length;
+    var openDeals = deals.filter(function (d) { return OPEN_STAGES.indexOf(d.stage) !== -1; });
+
+    var salesMonth = wonDeals.reduce(function (s, d) {
+      return s + ((d.closed_at || "").slice(0, 7) === monthKeyNow ? Number(d.value) || 0 : 0);
+    }, 0);
+    var openValue = openDeals.reduce(function (s, d) { return s + (Number(d.value) || 0); }, 0);
+    var winRate = (wonDeals.length + lostCount) > 0 ? Math.round(wonDeals.length / (wonDeals.length + lostCount) * 100) : 0;
+
+    el.dashSales.textContent = fmt(salesMonth);
+    el.dashOpen.textContent = openDeals.length + " ดีล";
+    el.dashOpenVal.textContent = "มูลค่ารวม " + fmt(openValue);
+    el.dashWon.textContent = wonDeals.length + " ดีล";
+    el.dashWinRate.textContent = winRate + "%";
+    el.dashWinDetail.textContent = "ชนะ " + wonDeals.length + " / แพ้ " + lostCount;
+
+    // ยอดขายย้อนหลัง 6 เดือน
+    var months = [];
+    for (var i = 5; i >= 0; i--) {
+      var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        key: d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"),
+        label: THAI_MONTHS_S[d.getMonth()],
+        total: 0
+      });
+    }
+    wonDeals.forEach(function (dl) {
+      var k = (dl.closed_at || "").slice(0, 7);
+      var m = months.find(function (x) { return x.key === k; });
+      if (m) m.total += Number(dl.value) || 0;
+    });
+    var max = Math.max.apply(null, months.map(function (m) { return m.total; }).concat([1]));
+    el.salesBars.innerHTML = months.map(function (m) {
+      return '<div class="bar-row"><div class="bname">' + m.label + '</div>' +
+        '<div class="btrack"><div class="bfill" style="width:' + (m.total / max * 100) + '%"></div></div>' +
+        '<div class="bval">' + fmt(m.total) + "</div></div>";
+    }).join("");
+    el.salesEmpty.hidden = wonDeals.length > 0;
+
+    // โดนัทสัดส่วนดีล
+    var segs = STAGES.map(function (s) {
+      return { stage: s, label: STAGE_INFO[s].label, color: STAGE_INFO[s].color,
+               count: deals.filter(function (d) { return d.stage === s; }).length };
+    }).filter(function (s) { return s.count > 0; });
+    var total = segs.reduce(function (s, x) { return s + x.count; }, 0);
+    el.donutTotal.innerHTML = total + "<small>ดีล</small>";
+    if (total === 0) {
+      el.stageDonut.style.background = "var(--bg-soft)";
+      el.stageLegend.innerHTML = '<div class="hint">ยังไม่มีข้อมูลดีล</div>';
+    } else {
+      var acc = 0, parts = [];
+      segs.forEach(function (s) {
+        var from = acc / total * 360; acc += s.count;
+        parts.push(s.color + " " + from + "deg " + (acc / total * 360) + "deg");
+      });
+      el.stageDonut.style.background = "conic-gradient(" + parts.join(",") + ")";
+      el.stageLegend.innerHTML = segs.map(function (s) {
+        return '<div class="lg-row"><span class="lg-dot" style="background:' + s.color + '"></span>' +
+          esc(s.label) + '<span class="lg-count">' + s.count + " ดีล</span></div>";
+      }).join("");
+    }
+
+    // งานวันนี้ (รวมงานเลยกำหนด)
+    var todays = tasks.filter(function (t) { return !t.done && t.due_date && dateOnly(t.due_date) <= todayStr(); });
+    el.todayTaskList.innerHTML = todays.length === 0
+      ? '<div class="empty">ไม่มีงานค้างสำหรับวันนี้ 🎉</div>'
+      : todays.slice(0, 8).map(function (t) {
+          var c = contactById(t.contact_id);
+          var od = isOverdue(t);
+          return '<div class="mini-row"><div class="mi-main"><div class="mi-title' + (od ? " overdue-text" : "") + '">' + esc(t.title) + "</div>" +
+            (c ? '<div class="mi-sub">' + esc(c.name) + "</div>" : "") + "</div>" +
+            '<div class="mi-right' + (od ? " overdue-text" : "") + '">' + (od ? "เลยกำหนด · " + fmtDate(t.due_date) : "วันนี้") + "</div></div>";
+        }).join("");
+
+    // ดีลใกล้ถึงวันปิด 30 วัน
+    var lim = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
+    var limStr = lim.getFullYear() + "-" + String(lim.getMonth() + 1).padStart(2, "0") + "-" + String(lim.getDate()).padStart(2, "0");
+    var closing = openDeals.filter(function (d) {
+      return d.expected_close && dateOnly(d.expected_close) >= todayStr() && dateOnly(d.expected_close) <= limStr;
+    }).sort(function (a, b) { return dateOnly(a.expected_close) < dateOnly(b.expected_close) ? -1 : 1; });
+    el.closingList.innerHTML = closing.length === 0
+      ? '<div class="empty">ไม่มีดีลที่ใกล้ถึงกำหนดปิด</div>'
+      : closing.slice(0, 8).map(function (d) {
+          var c = contactById(d.contact_id);
+          return '<div class="mini-row"><div class="mi-main"><div class="mi-title">' + esc(d.title) + "</div>" +
+            '<div class="mi-sub">' + (c ? esc(c.name) + " · " : "") + fmt(d.value) + "</div></div>" +
+            '<div class="mi-right">' + stageBadge(d.stage) + '<div class="hint" style="margin-top:3px">' + fmtDate(d.expected_close) + "</div></div></div>";
+        }).join("");
+  }
+
+  function stageBadge(stage) {
+    var info = STAGE_INFO[stage] || { label: stage, color: "#8A8378" };
+    return '<span class="badge" style="background:' + info.color + '1f;color:' + info.color + '">' + esc(info.label) + "</span>";
+  }
+
+  // ---------- contacts ----------
+  function contactDealCount(id) {
+    return deals.filter(function (d) { return d.contact_id === id; }).length;
+  }
+  function renderContacts() {
+    // ตัวเลือกแท็ก
+    var tagSet = {};
+    contacts.forEach(function (c) { splitTags(c.tags).forEach(function (t) { tagSet[t] = true; }); });
+    var cur = el.ctTagFilter.value;
+    el.ctTagFilter.innerHTML = '<option value="">แท็กทั้งหมด</option>' +
+      Object.keys(tagSet).sort(function (a, b) { return a.localeCompare(b, "th"); }).map(function (t) {
+        return '<option value="' + esc(t) + '"' + (t === cur ? " selected" : "") + ">" + esc(t) + "</option>";
+      }).join("");
+
+    var q = el.ctSearch.value.trim().toLowerCase();
+    var tag = el.ctTagFilter.value;
+    var list = contacts.filter(function (c) {
+      var hitQ = !q || [c.name, c.company, c.email, c.tags].some(function (v) {
+        return String(v || "").toLowerCase().indexOf(q) !== -1;
+      });
+      var hitTag = !tag || splitTags(c.tags).indexOf(tag) !== -1;
+      return hitQ && hitTag;
+    });
+
+    el.ctCount.textContent = "(" + list.length + "/" + contacts.length + ")";
+    el.ctEmpty.hidden = list.length > 0;
+    el.ctBody.innerHTML = list.map(function (c) {
+      return "<tr>" +
+        '<td><span class="link" data-view="' + c.id + '">' + esc(c.name) + "</span>" +
+          (c.position ? '<div class="hint">' + esc(c.position) + "</div>" : "") + "</td>" +
+        "<td>" + (esc(c.company) || "-") + "</td>" +
+        "<td>" + (esc(c.phone) || "-") + "</td>" +
+        "<td>" + splitTags(c.tags).map(function (t) { return '<span class="tag-chip">' + esc(t) + "</span>"; }).join("") + "</td>" +
+        '<td class="num">' + contactDealCount(c.id) + "</td>" +
+        '<td style="text-align:right;white-space:nowrap">' +
+          '<button type="button" class="icon-btn" data-edit="' + c.id + '">แก้ไข</button> ' +
+          '<button type="button" class="icon-btn danger" data-del="' + c.id + '">ลบ</button></td>' +
+        "</tr>";
+    }).join("");
+  }
+
+  function resetContactForm() {
+    editingContactId = null;
+    el.ctForm.reset();
+    el.ctFormTitle.textContent = "➕ เพิ่มลูกค้าใหม่";
+    el.ctSubmitBtn.textContent = "บันทึกลูกค้า";
+    el.ctCancelBtn.hidden = true;
+    el.ctErr.textContent = "";
+  }
+
+  el.ctForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var data = {
+      name: el.ctName.value.trim(), phone: el.ctPhone.value.trim(), email: el.ctEmail.value.trim(),
+      company: el.ctCompany.value.trim(), position: el.ctPosition.value.trim(),
+      address: el.ctAddress.value.trim(), tags: el.ctTags.value.trim()
+    };
+    if (!data.name) { el.ctErr.textContent = "กรุณาระบุชื่อลูกค้า"; return; }
+    el.ctSubmitBtn.disabled = true;
+    var op = editingContactId
+      ? sb.from("crm_contacts").update(data).eq("id", editingContactId)
+      : sb.from("crm_contacts").insert(data);
+    op.then(function (r) {
+      el.ctSubmitBtn.disabled = false;
+      if (r.error) { dbErr("บันทึกลูกค้าไม่สำเร็จ", r.error); return; }
+      flash(editingContactId ? "✅ แก้ไขลูกค้าแล้ว" : "✅ เพิ่มลูกค้าแล้ว");
+      resetContactForm();
+      loadAll();
+    });
+  });
+  el.ctCancelBtn.addEventListener("click", resetContactForm);
+  el.ctSearch.addEventListener("input", renderContacts);
+  el.ctTagFilter.addEventListener("change", renderContacts);
+
+  el.ctBody.addEventListener("click", function (e) {
+    var t = e.target;
+    var viewId = t.getAttribute("data-view"), editId = t.getAttribute("data-edit"), delId = t.getAttribute("data-del");
+    if (viewId) { showContactDetail(viewId); return; }
+    if (editId) {
+      var c = contactById(editId);
+      if (!c) return;
+      editingContactId = c.id;
+      el.ctName.value = c.name; el.ctPhone.value = c.phone || ""; el.ctEmail.value = c.email || "";
+      el.ctCompany.value = c.company || ""; el.ctPosition.value = c.position || "";
+      el.ctAddress.value = c.address || ""; el.ctTags.value = c.tags || "";
+      el.ctFormTitle.textContent = "✏️ แก้ไขข้อมูลลูกค้า";
+      el.ctSubmitBtn.textContent = "บันทึกการแก้ไข";
+      el.ctCancelBtn.hidden = false;
+      el.ctName.focus();
+      return;
+    }
+    if (delId) {
+      var c2 = contactById(delId);
+      if (!c2) return;
+      if (!confirm('ลบลูกค้า "' + c2.name + '" ?\nกิจกรรมที่ผูกอยู่จะถูกลบด้วย ส่วนดีล/งานจะไม่ถูกลบแต่ไม่ผูกกับลูกค้าอีกต่อไป')) return;
+      sb.from("crm_contacts").delete().eq("id", delId).then(function (r) {
+        if (r.error) { dbErr("ลบลูกค้าไม่สำเร็จ", r.error); return; }
+        if (editingContactId === delId) resetContactForm();
+        flash("🗑 ลบลูกค้าแล้ว");
+        loadAll();
+      });
+    }
+  });
+
+  // ---------- contact detail ----------
+  function showContactDetail(id) {
+    detailContactId = id;
+    el.contactsMain.hidden = true;
+    el.contactDetail.hidden = false;
+    renderContactDetail(id);
+  }
+  el.cdBackBtn.addEventListener("click", function () {
+    detailContactId = null;
+    el.contactDetail.hidden = true;
+    el.contactsMain.hidden = false;
+  });
+  function renderContactDetail(id) {
+    var c = contactById(id);
+    if (!c) { el.cdBackBtn.click(); return; }
+    el.cdName.textContent = c.name;
+    el.cdPositionCo.textContent = [c.position, c.company].filter(Boolean).join(" · ") || "-";
+    el.cdTags.innerHTML = splitTags(c.tags).map(function (t) { return '<span class="tag-chip">' + esc(t) + "</span>"; }).join("");
+    el.cdPhone.textContent = c.phone || "-";
+    el.cdEmail.textContent = c.email || "-";
+    el.cdAddress.textContent = c.address || "-";
+
+    var cDeals = deals.filter(function (d) { return d.contact_id === id; });
+    var sum = cDeals.reduce(function (s, d) { return s + (d.stage !== "LOST" ? Number(d.value) || 0 : 0); }, 0);
+    el.cdDealSum.textContent = fmt(sum);
+    el.cdDealCount.textContent = "(" + cDeals.length + ")";
+    el.cdDeals.innerHTML = cDeals.length === 0 ? '<div class="empty">ยังไม่มีดีล</div>'
+      : cDeals.map(function (d) {
+          return '<div class="mini-row"><div class="mi-main"><div class="mi-title">' + esc(d.title) + "</div>" +
+            '<div class="mi-sub">ปิดคาดการณ์ ' + fmtDate(d.expected_close) + " · โอกาส " + (d.probability || 0) + "%</div></div>" +
+            '<div class="mi-right"><b>' + fmt(d.value) + "</b><div style='margin-top:3px'>" + stageBadge(d.stage) + "</div></div></div>";
+        }).join("");
+
+    var cTasks = tasks.filter(function (t) { return t.contact_id === id; });
+    el.cdTaskCount.textContent = "(" + cTasks.length + ")";
+    el.cdTasks.innerHTML = cTasks.length === 0 ? '<div class="empty">ยังไม่มีงาน</div>'
+      : cTasks.map(function (t) {
+          var od = isOverdue(t);
+          return '<div class="mini-row"><div class="mi-main"><div class="mi-title' + (od ? " overdue-text" : "") + '">' +
+            (t.done ? "✔️ " : "") + esc(t.title) + "</div></div>" +
+            '<div class="mi-right' + (od ? " overdue-text" : "") + '">' + fmtDate(t.due_date) + "</div></div>";
+        }).join("");
+
+    var cActs = activities.filter(function (a) { return a.contact_id === id; });
+    el.cdActCount.textContent = "(" + cActs.length + ")";
+    el.cdActs.innerHTML = cActs.length === 0 ? '<div class="empty">ยังไม่มีกิจกรรม</div>'
+      : cActs.map(function (a) { return actRowHtml(a, false); }).join("");
+  }
+
+  // ---------- CSV ----------
+  function parseCSV(text) {
+    if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+    var rows = [], row = [], field = "", inQ = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (inQ) {
+        if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; }
+        else field += ch;
+      } else if (ch === '"') inQ = true;
+      else if (ch === ",") { row.push(field); field = ""; }
+      else if (ch === "\n" || ch === "\r") {
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(field); field = ""; rows.push(row); row = [];
+      } else field += ch;
+    }
+    if (field !== "" || row.length) { row.push(field); rows.push(row); }
+    return rows.filter(function (r) { return r.some(function (f) { return f.trim() !== ""; }); });
+  }
+
+  el.csvExportBtn.addEventListener("click", function () {
+    var header = ["name", "phone", "email", "company", "position", "address", "tags"];
+    var escCsv = function (v) { return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; };
+    var lines = [header.join(",")].concat(contacts.map(function (c) {
+      return header.map(function (h) { return escCsv(c[h]); }).join(",");
+    }));
+    var blob = new Blob([String.fromCharCode(0xfeff) + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "crm-contacts-" + todayStr() + ".csv";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    flash("📤 ส่งออก " + contacts.length + " รายชื่อแล้ว");
+  });
+
+  el.csvImportBtn.addEventListener("click", function () { el.csvFile.click(); });
+  el.csvFile.addEventListener("change", function () {
+    var f = el.csvFile.files[0];
+    el.csvFile.value = "";
+    if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var rows = parseCSV(String(reader.result || ""));
+      if (rows.length < 2) { flash("⚠️ ไฟล์ CSV ต้องมีหัวตารางและข้อมูลอย่างน้อย 1 แถว"); return; }
+      var header = rows[0].map(function (h) {
+        var k = h.trim();
+        return CSV_HEADER_MAP[k.toLowerCase()] || CSV_HEADER_MAP[k] || "";
+      });
+      if (header.indexOf("name") === -1) { flash("⚠️ ไม่พบคอลัมน์ name/ชื่อ ในไฟล์ CSV"); return; }
+      var items = [];
+      rows.slice(1).forEach(function (r) {
+        var o = { name: "", phone: "", email: "", company: "", position: "", address: "", tags: "" };
+        header.forEach(function (k, i) { if (k) o[k] = (r[i] || "").trim(); });
+        if (o.name) items.push(o);
+      });
+      if (items.length === 0) { flash("⚠️ ไม่มีแถวข้อมูลที่ใช้ได้"); return; }
+      sb.from("crm_contacts").insert(items).then(function (r) {
+        if (r.error) { dbErr("นำเข้าไม่สำเร็จ", r.error); return; }
+        flash("📥 นำเข้าสำเร็จ " + items.length + " รายการ");
+        loadAll();
+      });
+    };
+    reader.readAsText(f, "utf-8");
+  });
+
+  // ---------- deals / kanban ----------
+  function initStageSelect() {
+    el.dlStage.innerHTML = STAGES.map(function (s) {
+      return '<option value="' + s + '">' + STAGE_INFO[s].label + "</option>";
+    }).join("");
+  }
+
+  function renderKanban() {
+    el.kanban.innerHTML = STAGES.map(function (stage) {
+      var info = STAGE_INFO[stage];
+      var sDeals = deals.filter(function (d) { return d.stage === stage; });
+      var sum = sDeals.reduce(function (s, d) { return s + (Number(d.value) || 0); }, 0);
+      var cardsHtml = sDeals.map(function (d) {
+        var c = contactById(d.contact_id);
+        return '<div class="kb-card" draggable="true" data-deal="' + d.id + '">' +
+          '<div class="kc-title">' + esc(d.title) + "</div>" +
+          (c ? '<div class="kc-contact">👤 ' + esc(c.name) + "</div>" : "") +
+          '<div class="kc-row"><span class="kc-value">' + fmt(d.value) + '</span><span class="kc-prob">' + (d.probability || 0) + "%</span></div>" +
+          (d.expected_close ? '<div class="kc-date">📅 ปิด ' + fmtDate(d.expected_close) + "</div>" : "") +
+          "</div>";
+      }).join("");
+      return '<div class="kb-col" data-stage="' + stage + '">' +
+        '<div class="kb-head">' +
+          '<div class="kb-title"><span class="kb-dot" style="background:' + info.color + '"></span>' + info.label +
+            '<span class="kb-count">' + sDeals.length + "</span></div>" +
+          '<div class="kb-sum">รวม ' + fmt(sum) + "</div></div>" +
+        '<div class="kb-cards">' + cardsHtml + "</div></div>";
+    }).join("");
+  }
+
+  el.kanban.addEventListener("dragstart", function (e) {
+    var card = e.target.closest ? e.target.closest(".kb-card") : null;
+    if (card) e.dataTransfer.setData("text/plain", card.getAttribute("data-deal"));
+  });
+  el.kanban.addEventListener("dragover", function (e) {
+    var col = e.target.closest ? e.target.closest(".kb-col") : null;
+    if (!col) return;
+    e.preventDefault();
+    el.kanban.querySelectorAll(".kb-col").forEach(function (c) { c.classList.toggle("dragover", c === col); });
+  });
+  el.kanban.addEventListener("dragleave", function (e) {
+    var col = e.target.closest ? e.target.closest(".kb-col") : null;
+    if (col && !col.contains(e.relatedTarget)) col.classList.remove("dragover");
+  });
+  el.kanban.addEventListener("drop", function (e) {
+    var col = e.target.closest ? e.target.closest(".kb-col") : null;
+    el.kanban.querySelectorAll(".kb-col").forEach(function (c) { c.classList.remove("dragover"); });
+    if (!col) return;
+    e.preventDefault();
+    var id = e.dataTransfer.getData("text/plain");
+    var stage = col.getAttribute("data-stage");
+    moveDeal(id, stage);
+  });
+  el.kanban.addEventListener("click", function (e) {
+    var card = e.target.closest ? e.target.closest(".kb-card") : null;
+    if (!card) return;
+    var d = dealById(card.getAttribute("data-deal"));
+    if (!d) return;
+    editingDealId = d.id;
+    el.dlTitle.value = d.title; el.dlValue.value = d.value || "";
+    el.dlContact.innerHTML = contactOptions(d.contact_id || "");
+    el.dlStage.value = d.stage; el.dlProb.value = d.probability || 0;
+    el.dlClose.value = d.expected_close ? dateOnly(d.expected_close) : "";
+    el.dlNotes.value = d.notes || "";
+    el.dlFormTitle.textContent = "✏️ แก้ไขดีล";
+    el.dlSubmitBtn.textContent = "บันทึกการแก้ไข";
+    el.dlCancelBtn.hidden = false; el.dlDeleteBtn.hidden = false;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    el.dlTitle.focus();
+  });
+
+  function moveDeal(id, stage) {
+    var d = dealById(id);
+    if (!d || !stage || d.stage === stage) return;
+    var closed = (stage === "WON" || stage === "LOST");
+    var patch = { stage: stage, closed_at: closed ? new Date().toISOString() : null };
+    d.stage = stage; d.closed_at = patch.closed_at; // อัปเดตหน้าจอทันที
+    renderKanban(); renderDashboard();
+    sb.from("crm_deals").update(patch).eq("id", id).then(function (r) {
+      if (r.error) { dbErr("ย้ายดีลไม่สำเร็จ", r.error); loadAll(); return; }
+      flash("✅ ย้ายดีลไป " + STAGE_INFO[stage].label);
+    });
+  }
+
+  function resetDealForm() {
+    editingDealId = null;
+    el.dlForm.reset();
+    el.dlProb.value = 50;
+    el.dlFormTitle.textContent = "➕ เพิ่มดีลใหม่";
+    el.dlSubmitBtn.textContent = "บันทึกดีล";
+    el.dlCancelBtn.hidden = true; el.dlDeleteBtn.hidden = true;
+    el.dlErr.textContent = "";
+  }
+
+  el.dlForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = el.dlTitle.value.trim();
+    if (!title) { el.dlErr.textContent = "กรุณาระบุชื่อดีล"; return; }
+    var stage = el.dlStage.value;
+    var closed = (stage === "WON" || stage === "LOST");
+    var prev = editingDealId ? dealById(editingDealId) : null;
+    var data = {
+      title: title,
+      value: Number(el.dlValue.value) || 0,
+      contact_id: el.dlContact.value || null,
+      stage: stage,
+      probability: Math.min(100, Math.max(0, Number(el.dlProb.value) || 0)),
+      expected_close: el.dlClose.value || null,
+      notes: el.dlNotes.value.trim(),
+      closed_at: closed ? ((prev && prev.stage === stage && prev.closed_at) || new Date().toISOString()) : null
+    };
+    el.dlSubmitBtn.disabled = true;
+    var op = editingDealId
+      ? sb.from("crm_deals").update(data).eq("id", editingDealId)
+      : sb.from("crm_deals").insert(data);
+    op.then(function (r) {
+      el.dlSubmitBtn.disabled = false;
+      if (r.error) { dbErr("บันทึกดีลไม่สำเร็จ", r.error); return; }
+      flash(editingDealId ? "✅ แก้ไขดีลแล้ว" : "✅ เพิ่มดีลแล้ว");
+      resetDealForm();
+      loadAll();
+    });
+  });
+  el.dlCancelBtn.addEventListener("click", resetDealForm);
+  el.dlDeleteBtn.addEventListener("click", function () {
+    if (!editingDealId) return;
+    var d = dealById(editingDealId);
+    if (!confirm('ลบดีล "' + (d ? d.title : "") + '" ?')) return;
+    sb.from("crm_deals").delete().eq("id", editingDealId).then(function (r) {
+      if (r.error) { dbErr("ลบดีลไม่สำเร็จ", r.error); return; }
+      flash("🗑 ลบดีลแล้ว");
+      resetDealForm();
+      loadAll();
+    });
+  });
+
+  // ---------- activities ----------
+  function actRowHtml(a, withDelete) {
+    var info = ACT_INFO[a.type] || { label: a.type, color: "#8A8378" };
+    var c = contactById(a.contact_id);
+    var d = dealById(a.deal_id);
+    var subs = [];
+    if (c) subs.push('<span class="link" data-view-contact="' + c.id + '">ลูกค้า: ' + esc(c.name) + "</span>");
+    if (d) subs.push("ดีล: " + esc(d.title));
+    return '<div class="act-row">' +
+      '<span class="badge" style="background:' + info.color + '1f;color:' + info.color + ';flex-shrink:0">' + info.label + "</span>" +
+      '<div class="ac-main"><div class="ac-title">' + esc(a.title) + "</div>" +
+      (a.detail ? '<div class="ac-detail">' + esc(a.detail) + "</div>" : "") +
+      (subs.length ? '<div class="ac-sub">' + subs.join(" · ") + "</div>" : "") + "</div>" +
+      '<div class="ac-right"><span>' + fmtDateTime(a.created_at) + "</span>" +
+      (withDelete ? '<button type="button" class="icon-btn danger" data-del-act="' + a.id + '">ลบ</button>' : "") +
+      "</div></div>";
+  }
+
+  function renderActivities() {
+    el.acFilterRow.innerHTML =
+      '<button type="button" class="chip' + (acFilter === "" ? " active" : "") + '" data-filter="">ทั้งหมด</button>' +
+      ACT_TYPES.map(function (t) {
+        return '<button type="button" class="chip' + (acFilter === t ? " active" : "") + '" data-filter="' + t + '">' + ACT_INFO[t].label + "</button>";
+      }).join("");
+    var list = activities.filter(function (a) { return !acFilter || a.type === acFilter; });
+    el.acCount.textContent = "(" + list.length + ")";
+    el.acEmpty.hidden = list.length > 0;
+    el.acList.innerHTML = list.map(function (a) { return actRowHtml(a, true); }).join("");
+  }
+
+  el.acFilterRow.addEventListener("click", function (e) {
+    var f = e.target.getAttribute && e.target.getAttribute("data-filter");
+    if (f === null || f === undefined) return;
+    acFilter = f;
+    renderActivities();
+  });
+  el.acList.addEventListener("click", function (e) {
+    var delId = e.target.getAttribute && e.target.getAttribute("data-del-act");
+    if (delId) {
+      if (!confirm("ลบกิจกรรมนี้?")) return;
+      sb.from("crm_activities").delete().eq("id", delId).then(function (r) {
+        if (r.error) { dbErr("ลบกิจกรรมไม่สำเร็จ", r.error); return; }
+        flash("🗑 ลบกิจกรรมแล้ว");
+        loadAll();
+      });
+      return;
+    }
+    var vc = e.target.getAttribute && e.target.getAttribute("data-view-contact");
+    if (vc) { switchTab("contacts"); showContactDetail(vc); }
+  });
+
+  el.acForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = el.acTitle.value.trim();
+    if (!title) { el.acErr.textContent = "กรุณาระบุหัวข้อกิจกรรม"; return; }
+    el.acErr.textContent = "";
+    var data = {
+      type: el.acType.value, title: title, detail: el.acDetail.value.trim(),
+      contact_id: el.acContact.value || null, deal_id: el.acDeal.value || null
+    };
+    sb.from("crm_activities").insert(data).then(function (r) {
+      if (r.error) { dbErr("บันทึกกิจกรรมไม่สำเร็จ", r.error); return; }
+      flash("✅ บันทึกกิจกรรมแล้ว");
+      el.acForm.reset();
+      loadAll();
+    });
+  });
+
+  // ---------- tasks ----------
+  function taskRowHtml(t) {
+    var od = isOverdue(t);
+    var today = isDueToday(t) && !t.done;
+    var c = contactById(t.contact_id);
+    var d = dealById(t.deal_id);
+    var subs = [];
+    if (c) subs.push(esc(c.name));
+    if (d) subs.push("ดีล: " + esc(d.title));
+    var dueHtml = t.due_date
+      ? (od ? '<span class="overdue-text">⚠️ เลยกำหนด · ' + fmtDate(t.due_date) + "</span>"
+           : today ? '<b style="color:var(--balance)">ครบกำหนดวันนี้</b>'
+           : '<span class="hint">' + fmtDate(t.due_date) + "</span>")
+      : '<span class="hint">ไม่มีกำหนด</span>';
+    return '<div class="task-row' + (od ? " overdue" : "") + (t.done ? " done-row" : "") + '">' +
+      '<input type="checkbox"' + (t.done ? " checked" : "") + ' data-toggle="' + t.id + '">' +
+      '<div class="tk-main"><div class="tk-title' + (od ? " overdue-text" : "") + '">' + esc(t.title) + "</div>" +
+      (subs.length ? '<div class="tk-sub">' + subs.join(" · ") + "</div>" : "") + "</div>" +
+      '<div class="tk-right">' + dueHtml +
+      '<button type="button" class="icon-btn danger" data-del-task="' + t.id + '">ลบ</button></div></div>';
+  }
+
+  function renderTasks() {
+    var pending = tasks.filter(function (t) { return !t.done; });
+    var done = tasks.filter(function (t) { return t.done; });
+    el.tkPendingCount.textContent = "(" + pending.length + ")";
+    el.tkDoneCount.textContent = "(" + done.length + ")";
+    el.tkPendingEmpty.hidden = pending.length > 0;
+    el.tkDoneEmpty.hidden = done.length > 0;
+    el.tkPendingList.innerHTML = pending.map(taskRowHtml).join("");
+    el.tkDoneList.innerHTML = done.map(taskRowHtml).join("");
+  }
+
+  function onTaskListClick(e) {
+    var tg = e.target.getAttribute && e.target.getAttribute("data-toggle");
+    if (tg) {
+      var t = tasks.find(function (x) { return x.id === tg; });
+      if (!t) return;
+      var newDone = !t.done;
+      t.done = newDone; renderTasks(); renderDashboard(); // อัปเดตหน้าจอทันที
+      sb.from("crm_tasks").update({ done: newDone }).eq("id", tg).then(function (r) {
+        if (r.error) { dbErr("อัปเดตงานไม่สำเร็จ", r.error); loadAll(); }
+      });
+      return;
+    }
+    var delId = e.target.getAttribute && e.target.getAttribute("data-del-task");
+    if (delId) {
+      if (!confirm("ลบงานนี้?")) return;
+      sb.from("crm_tasks").delete().eq("id", delId).then(function (r) {
+        if (r.error) { dbErr("ลบงานไม่สำเร็จ", r.error); return; }
+        flash("🗑 ลบงานแล้ว");
+        loadAll();
+      });
+    }
+  }
+  el.tkPendingList.addEventListener("click", onTaskListClick);
+  el.tkDoneList.addEventListener("click", onTaskListClick);
+
+  el.tkForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var title = el.tkTitle.value.trim();
+    if (!title) { el.tkErr.textContent = "กรุณาระบุชื่องาน"; return; }
+    el.tkErr.textContent = "";
+    var data = {
+      title: title, due_date: el.tkDue.value || null,
+      contact_id: el.tkContact.value || null, deal_id: el.tkDeal.value || null
+    };
+    sb.from("crm_tasks").insert(data).then(function (r) {
+      if (r.error) { dbErr("บันทึกงานไม่สำเร็จ", r.error); return; }
+      flash("✅ เพิ่มงานแล้ว");
+      el.tkForm.reset();
+      loadAll();
+    });
+  });
+
+  // ---------- tabs / theme / init ----------
+  function switchTab(tab) {
+    activeTab = tab;
+    document.querySelectorAll(".tabs button").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+    });
+    ["dashboard", "contacts", "deals", "activities", "tasks"].forEach(function (t) {
+      $("tab-" + t).hidden = (t !== tab);
+    });
+  }
+  document.querySelectorAll(".tabs button").forEach(function (b) {
+    b.addEventListener("click", function () { switchTab(b.getAttribute("data-tab")); });
+  });
+  el.themeBtn.addEventListener("click", function () {
+    applyTheme(document.documentElement.getAttribute("data-theme") === "midnight" ? "quiet" : "midnight");
+  });
+
+  var savedTheme = "quiet";
+  try { savedTheme = localStorage.getItem(THEME_KEY) || "quiet"; } catch (e) {}
+  if (savedTheme === "light") savedTheme = "quiet";
+  if (savedTheme === "dark") savedTheme = "midnight";
+  applyTheme(savedTheme);
+
+  el.acType.innerHTML = ACT_TYPES.map(function (t) {
+    return '<option value="' + t + '">' + ACT_INFO[t].label + "</option>";
+  }).join("");
+  initStageSelect();
+  loadAll();
+})();
+</script>
+</body>
+</html>
