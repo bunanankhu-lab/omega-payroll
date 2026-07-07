@@ -464,9 +464,9 @@
       <textarea id="pmNote" rows="3" placeholder="เช่น ล้างหัวฉีด เปลี่ยนไส้กรอง เติมน้ำยา"></textarea>
     </div>
     <div class="field">
-      <label>📷 รูปจุดที่ตรวจเช็ค (สูงสุด 7 รูป — ลูกค้าจะเห็นเมื่อสแกน QR)</label>
+      <label>📷 รูปจุดที่ตรวจเช็ค (สูงสุด 15 รูป — ลูกค้าจะเห็นเมื่อสแกน QR)</label>
       <input id="pmPhotos" type="file" accept="image/*" multiple hidden>
-      <button type="button" class="photo-add" id="pmAddPhotoBtn">＋ เพิ่มรูป (0/7)</button>
+      <button type="button" class="photo-add" id="pmAddPhotoBtn">＋ เพิ่มรูป (0/15)</button>
       <div class="photo-grid" id="pmPhotoGrid"></div>
     </div>
     <button type="submit" class="btn primary" id="pmSubmitBtn">✓ บันทึก แล้วเริ่มนับรอบใหม่</button>
@@ -1023,7 +1023,7 @@
   // ---------- รูปการตรวจเช็ค ----------
   // รูปเก็บใน Supabase Storage (bucket สาธารณะ pm-photos) เพราะใหญ่เกินกว่าจะฝังใน QR
   // ใน history เก็บแค่ pf (โฟลเดอร์) + pn (จำนวนรูป) แล้วประกอบ URL เอาตอนแสดง
-  var MAX_PHOTOS = 7;
+  var MAX_PHOTOS = 15;
   var pmPhotoFiles = [];   // { blob, url(พรีวิว) }
 
   function photoUrl(pf, i) {
