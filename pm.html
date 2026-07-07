@@ -55,6 +55,20 @@
   .sum-box.yellow.active { border-color: var(--yellow); background: var(--yellow-bg); }
   .sum-box.green.active { border-color: var(--green); background: var(--green-bg); }
 
+  /* แถบสถานะข้อมูลกลาง */
+  .cloud-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    font-size: .78rem; color: var(--muted); margin: -4px 0 10px; padding: 0 4px;
+  }
+  .cloud-bar .st { min-width: 0; }
+  .cloud-bar .st.ok { color: var(--green); }
+  .cloud-bar .st.err { color: var(--red); }
+  .cloud-bar button {
+    flex-shrink: 0; border: 1px solid var(--border); background: var(--card); color: var(--primary);
+    border-radius: 999px; padding: 5px 12px; font-family: inherit; font-size: .76rem; font-weight: 600; cursor: pointer;
+  }
+  .cloud-bar button:active { background: var(--primary-soft); }
+
   .search-wrap { position: relative; margin-bottom: 12px; }
   .search-wrap input {
     width: 100%; padding: 12px 14px 12px 40px; border: 1px solid var(--border); border-radius: 999px;
@@ -259,6 +273,11 @@
       <h1>🔧 เตือนรอบ PM</h1>
       <a class="home-link" href="index.html#payroll" target="_top">หน้าหลัก</a>
     </header>
+
+    <div class="cloud-bar">
+      <span class="st" id="cloudStatus">☁️ กำลังเชื่อมต่อข้อมูลกลาง...</span>
+      <button type="button" id="cloudRefreshBtn">🔄 รีเฟรช</button>
+    </div>
 
     <div class="summary">
       <button type="button" class="sum-box red" id="sumRed">
@@ -570,6 +589,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var el = {
     pageList: $("pageList"), pageDetail: $("pageDetail"),
+    cloudStatus: $("cloudStatus"), cloudRefreshBtn: $("cloudRefreshBtn"),
     sumRed: $("sumRed"), sumYellow: $("sumYellow"), sumGreen: $("sumGreen"),
     sumRedN: $("sumRedN"), sumYellowN: $("sumYellowN"), sumGreenN: $("sumGreenN"),
     searchInput: $("searchInput"), custList: $("custList"), listEmpty: $("listEmpty"),
@@ -1471,23 +1491,45 @@
   });
 
   // ---------- init ----------
-  if (!tryOpenStoreView() && !tryOpenQrView()) {
-    renderList();  // โชว์แคช/สถานะกำลังโหลดไปก่อน
-    migrateLocalToCloud().catch(function () {})
+  var PM_VERSION = "v3";   // โชว์ในแถบสถานะ ไว้เช็คว่าเครื่องไหนยังโหลดหน้าเวอร์ชันเก่าค้างอยู่
+  function timeStr() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function setCloudStatus(mode, txt) {
+    el.cloudStatus.className = "st" + (mode ? " " + mode : "");
+    el.cloudStatus.textContent = txt;
+  }
+  function cloudOkStatus() {
+    setCloudStatus("ok", "☁️ ข้อมูลกลางล่าสุด · " + customers.length + " ร้าน · " + timeStr() + " · " + PM_VERSION);
+  }
+  function refreshFromCloud() {
+    setCloudStatus("", "☁️ กำลังเชื่อมต่อข้อมูลกลาง...");
+    return migrateLocalToCloud().catch(function () {})
       .then(fetchCustomers)
       .then(function () {
         cloudLoaded = true;
         renderList();
+        cloudOkStatus();
       })
       .catch(function () {
         cloudLoaded = true;  // ออฟไลน์ — ใช้แคชในเครื่องไปก่อน
         renderList();
-        flash("📴 โหลดจากเว็บไม่สำเร็จ — แสดงข้อมูลล่าสุดที่เคยโหลดไว้ในเครื่องนี้");
+        setCloudStatus("err", "📴 ต่อข้อมูลกลางไม่ได้ — แสดงข้อมูลที่เคยโหลดในเครื่องนี้ · " + PM_VERSION);
+        flash("📴 โหลดจากเว็บไม่สำเร็จ — เช็คสัญญาณเน็ตแล้วกด 🔄 รีเฟรช");
       });
+  }
+  if (!tryOpenStoreView() && !tryOpenQrView()) {
+    renderList();  // โชว์แคช/สถานะกำลังโหลดไปก่อน
+    refreshFromCloud();
+    el.cloudRefreshBtn.addEventListener("click", refreshFromCloud);
     // กลับมาเปิดแอปเมื่อไหร่ รีเฟรชรายชื่อจากเว็บให้เอง (เห็นข้อมูลที่เครื่องอื่นเพิ่งบันทึก)
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden && cloudLoaded && !el.pageList.hidden) {
-        fetchCustomers().then(renderList).catch(function () {});
+        fetchCustomers().then(function () {
+          renderList();
+          cloudOkStatus();
+        }).catch(function () {});
       }
     });
   }
