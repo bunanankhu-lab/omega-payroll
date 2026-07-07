@@ -157,6 +157,12 @@
   .hist-item .d { font-weight: 600; }
   .hist-item .n { color: var(--muted); white-space: pre-wrap; }
   .hist-empty { color: var(--muted); font-size: .88rem; padding: 8px 0; }
+  .hist-edit {
+    border: 1px solid var(--border); background: var(--bg); color: var(--primary);
+    border-radius: 8px; padding: 5px 12px; font-family: inherit; font-size: .76rem;
+    font-weight: 600; cursor: pointer; margin-top: 8px;
+  }
+  .hist-edit:active { background: var(--primary-soft); }
 
   .btn-row { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
   .btn {
@@ -442,7 +448,7 @@
 <div class="sheet-overlay" id="pmOverlay"></div>
 <div class="sheet" id="pmSheet">
   <div class="grip"></div>
-  <h3>บันทึกการทำ PM</h3>
+  <h3 id="pmSheetTitle">บันทึกการทำ PM</h3>
   <form id="pmForm">
     <div class="field">
       <label for="pmDate">วันที่ทำ</label>
@@ -607,7 +613,7 @@
     custForm: $("custForm"), fName: $("fName"), fPhone: $("fPhone"), fType: $("fType"),
     fModel: $("fModel"), fAddress: $("fAddress"), fLastPM: $("fLastPM"), fCycle: $("fCycle"),
     fNote: $("fNote"), fErr: $("fErr"), custCancelBtn: $("custCancelBtn"),
-    pmOverlay: $("pmOverlay"), pmSheet: $("pmSheet"), pmForm: $("pmForm"),
+    pmOverlay: $("pmOverlay"), pmSheet: $("pmSheet"), pmSheetTitle: $("pmSheetTitle"), pmForm: $("pmForm"),
     pmDate: $("pmDate"), pmTech: $("pmTech"), techList: $("techList"),
     pmNote: $("pmNote"), pmCancelBtn: $("pmCancelBtn"),
     pmPhotos: $("pmPhotos"), pmAddPhotoBtn: $("pmAddPhotoBtn"), pmPhotoGrid: $("pmPhotoGrid"),
@@ -824,7 +830,7 @@
 
   function fetchHistory(c) {
     return fetch(SUPABASE_URL + "/rest/v1/pm_records?store_id=eq." + encodeURIComponent(c.id) +
-        "&order=date.desc,created_at.desc&select=date,tech,note,pf,pn", { headers: sbHeaders() })
+        "&order=date.desc,created_at.desc&select=id,date,tech,note,pf,pn", { headers: sbHeaders() })
       .then(function (r) { if (!r.ok) throw new Error("hist " + r.status); return r.json(); })
       .then(function (rows) { c.history = rows; });
   }
@@ -842,9 +848,14 @@
             (h.tech ? '<div class="n">🧑‍🔧 ช่าง: ' + esc(h.tech) + "</div>" : "") +
             (h.note ? '<div class="n">' + esc(h.note) + "</div>" : "") +
             (h.pf && h.pn ? '<div class="photo-grid small">' + photoLinks(h.pf, h.pn) + "</div>" : "") +
+            (h.id != null ? '<button type="button" class="hist-edit" data-rid="' + h.id + '">✏️ แก้ไขบันทึกนี้</button>' : "") +
             "</div></div>";
         }).join("");
   }
+  el.dHistory.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest(".hist-edit") : null;
+    if (b) openEditPmSheet(Number(b.getAttribute("data-rid")));
+  });
 
   function backToList() {
     currentId = null;
@@ -1159,7 +1170,10 @@
     });
     return best ? best.tech : "";
   }
+  var editingRec = null;   // บันทึก PM ที่กำลังแก้ไข (null = บันทึกใหม่)
   function openPmSheet() {
+    editingRec = null;
+    el.pmSheetTitle.textContent = "บันทึกการทำ PM";
     el.pmDate.value = todayStr();
     el.pmTech.value = lastTechUsed();  // เติมชื่อช่างครั้งล่าสุดให้ แก้ได้
     // ดึงชื่อช่างจากบันทึกบนเว็บ (ประวัติไม่ได้อยู่ในเครื่องแล้ว)
@@ -1196,12 +1210,104 @@
     el.pmOverlay.classList.remove("show");
     el.pmSheet.classList.remove("show");
   }
+  // เปิดฟอร์มแก้ไขบันทึก PM เดิม — เติมข้อมูล+รูปเดิมให้ แก้แล้วบันทึกทับรายการเดิม
+  function openEditPmSheet(rid) {
+    var c = custById(currentId);
+    var h = c && (c.history || []).find(function (x) { return x.id === rid; });
+    if (!h) return;
+    editingRec = h;
+    el.pmSheetTitle.textContent = "✏️ แก้ไขบันทึก PM";
+    el.pmDate.value = h.date || todayStr();
+    el.pmTech.value = h.tech || "";
+    el.pmNote.value = h.note || "";
+    resetPmPhotos();
+    if (h.pf && h.pn) {
+      for (var i = 1; i <= h.pn; i++) {
+        pmPhotoFiles.push({ remote: photoUrl(h.pf, i), url: photoUrl(h.pf, i), folder: h.pf });
+      }
+      renderPmPhotos();
+    }
+    el.pmSubmitBtn.disabled = false;
+    el.pmSubmitBtn.textContent = "✓ บันทึกการแก้ไข";
+    el.pmOverlay.classList.add("show");
+    el.pmSheet.classList.add("show");
+  }
+
+  function submitEditPm() {
+    var c = custById(currentId);
+    var h = editingRec;
+    if (!c || !h) { closePmSheet(); return; }
+    var date = el.pmDate.value || todayStr();
+    var patch = { date: date, tech: el.pmTech.value.trim(), note: el.pmNote.value.trim() };
+    el.pmSubmitBtn.disabled = true;
+
+    // ถ้ารูปยังเป็นชุดเดิมครบถ้วน ไม่ต้องอัปโหลดใหม่
+    var unchanged = (Number(h.pn) || 0) === pmPhotoFiles.length &&
+      pmPhotoFiles.every(function (p) { return p.folder === h.pf; });
+    var prep;
+    if (unchanged) {
+      patch.pf = h.pf || "";
+      patch.pn = h.pn || 0;
+      prep = Promise.resolve();
+    } else if (pmPhotoFiles.length === 0) {
+      patch.pf = "";
+      patch.pn = 0;
+      prep = Promise.resolve();
+    } else {
+      // รวมรูปเดิมที่เหลือ + รูปใหม่ แล้วอัปโหลดเป็นชุดใหม่ (ของเดิมบนเว็บไม่ถูกแตะ)
+      var folder = c.id + "-" + date + "-" + Math.random().toString(36).slice(2, 6);
+      el.pmSubmitBtn.textContent = "⏳ กำลังเตรียมรูป...";
+      prep = Promise.all(pmPhotoFiles.map(function (p) {
+        if (p.blob) return Promise.resolve(p.blob);
+        return fetch(p.remote).then(function (r) {
+          if (!r.ok) throw new Error("img");
+          return r.blob();
+        });
+      })).then(function (blobs) {
+        return uploadPmPhotos(folder, blobs, function (i, n) {
+          el.pmSubmitBtn.textContent = "⏳ กำลังอัปโหลดรูป " + i + "/" + n + "...";
+        }).then(function (done) {
+          if (done < blobs.length) throw new Error("upload incomplete");
+          patch.pf = folder;
+          patch.pn = done;
+        });
+      });
+    }
+
+    prep.then(function () {
+      el.pmSubmitBtn.textContent = "⏳ กำลังบันทึกขึ้นเว็บ...";
+      return fetch(SUPABASE_URL + "/rest/v1/pm_records?id=eq." + h.id, {
+        method: "PATCH",
+        headers: Object.assign(sbHeaders(true), { Prefer: "return=minimal" }),
+        body: JSON.stringify(patch)
+      }).then(function (r) { if (!r.ok) throw new Error("patch " + r.status); });
+    }).then(function () {
+      Object.assign(h, patch);
+      var mx = "";
+      (c.history || []).forEach(function (x) { if (x.date > mx) mx = x.date; });
+      if (mx) c.lastPM = mx;
+      saveCache();
+      resetPmPhotos();
+      editingRec = null;
+      el.pmSubmitBtn.disabled = false;
+      el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
+      closePmSheet();
+      flash("✅ แก้ไขบันทึก PM แล้ว");
+      openDetail(currentId);
+    }).catch(function () {
+      el.pmSubmitBtn.disabled = false;
+      el.pmSubmitBtn.textContent = "✓ บันทึกการแก้ไข";
+      flash("⚠️ แก้ไขไม่สำเร็จ — เช็คสัญญาณเน็ตแล้วลองอีกครั้ง");
+    });
+  }
+
   el.pmDoneBtn.addEventListener("click", openPmSheet);
   el.pmCancelBtn.addEventListener("click", closePmSheet);
   el.pmOverlay.addEventListener("click", closePmSheet);
 
   el.pmForm.addEventListener("submit", function (e) {
     e.preventDefault();
+    if (editingRec) { submitEditPm(); return; }  // โหมดแก้ไขบันทึกเดิม
     if (scanStore) { submitScanPm(); return; }   // โหมดสแกน QR หน้าเครื่อง
     var c = custById(currentId);
     if (!c) { closePmSheet(); return; }
