@@ -142,6 +142,7 @@
     box-shadow: 0 4px 14px rgba(43,122,158,.35);
   }
   .call-btn:active { opacity: .85; }
+  .map-btn { background: #188038; box-shadow: 0 4px 14px rgba(24,128,56,.3); }
 
   table.info { width: 100%; border-collapse: collapse; font-size: .9rem; }
   table.info td { padding: 9px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
@@ -321,6 +322,7 @@
     </div>
 
     <a class="call-btn" id="dCallBtn" href="#">📞 โทรหาลูกค้า</a>
+    <a class="call-btn map-btn" id="dMapBtn" href="#" target="_blank" rel="noopener" hidden>🗺 นำทาง (Google Maps)</a>
 
     <div class="detail-card">
       <table class="info">
@@ -410,7 +412,7 @@
     </div>
     <div class="field">
       <label for="fAddress">ที่อยู่</label>
-      <textarea id="fAddress" rows="2" placeholder="ที่ตั้งร้าน / จุดสังเกต"></textarea>
+      <textarea id="fAddress" rows="2" placeholder="ที่ตั้งร้าน / จุดสังเกต / วางลิงก์ Google Maps ได้เลย"></textarea>
     </div>
     <div class="row2">
       <div class="field">
@@ -596,7 +598,7 @@
     fabAdd: $("fabAdd"), backBtn: $("backBtn"),
     dName: $("dName"), dTypeModel: $("dTypeModel"), dBadge: $("dBadge"),
     dProgText: $("dProgText"), dProgPct: $("dProgPct"), dProgFill: $("dProgFill"),
-    dCallBtn: $("dCallBtn"), dAddress: $("dAddress"), dType: $("dType"), dModel: $("dModel"),
+    dCallBtn: $("dCallBtn"), dMapBtn: $("dMapBtn"), dAddress: $("dAddress"), dType: $("dType"), dModel: $("dModel"),
     dLastPM: $("dLastPM"), dNextDue: $("dNextDue"), dCycle: $("dCycle"), dNote: $("dNote"),
     dHistory: $("dHistory"),
     pmDoneBtn: $("pmDoneBtn"), editBtn: $("editBtn"), deleteBtn: $("deleteBtn"),
@@ -665,6 +667,28 @@
     return "อีก " + d + " วัน";
   }
   function custById(id) { return customers.find(function (c) { return c.id === id; }) || null; }
+  // ที่อยู่อาจมีลิงก์ Google Maps แปะมาด้วย — ดึงลิงก์ออกมาให้กดนำทางได้
+  function extractUrl(s) {
+    var m = String(s || "").match(/https?:\/\/[^\s]+/);
+    return m ? m[0] : "";
+  }
+  function mapsUrl(address) {
+    var u = extractUrl(address);
+    if (u) return u;
+    var addr = String(address || "").trim();
+    if (!addr) return "";
+    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(addr);
+  }
+  function renderAddress(cell, address) {
+    var addr = String(address || "").trim();
+    if (!addr) { cell.textContent = "-"; return; }
+    var u = extractUrl(addr);
+    if (!u) { cell.textContent = addr; return; }
+    // ซ่อนลิงก์ยาวๆ ไว้หลังปุ่มข้อความ อ่านง่ายกว่าโชว์ URL เต็ม
+    var rest = addr.replace(u, "").replace(/\s{2,}/g, " ").trim();
+    cell.innerHTML = (rest ? esc(rest) + "<br>" : "") +
+      '<a href="' + esc(u) + '" target="_blank" rel="noopener" style="color:var(--primary);font-weight:600">📍 เปิดใน Google Maps</a>';
+  }
   function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
   var toastTimer = null;
   function flash(msg) {
@@ -768,7 +792,12 @@
       el.dCallBtn.hidden = true;
     }
 
-    el.dAddress.textContent = c.address || "-";
+    // ปุ่มนำทาง: ถ้าที่อยู่มีลิงก์ (เช่น Google Maps) ใช้ลิงก์นั้น ไม่มีก็ค้นหาจากข้อความที่อยู่
+    var mu = mapsUrl(c.address);
+    el.dMapBtn.hidden = !mu;
+    if (mu) el.dMapBtn.href = mu;
+
+    renderAddress(el.dAddress, c.address);
     el.dType.textContent = c.type || "-";
     el.dModel.textContent = c.model || "-";
     el.dLastPM.textContent = fmtThai(c.lastPM);
