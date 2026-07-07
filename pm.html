@@ -350,6 +350,7 @@
       <div class="sub" style="font-size:.8rem">แตะที่รูปเพื่อดูขนาดเต็ม</div>
       <div class="photo-grid" id="qvPhotoGrid"></div>
     </div>
+    <button type="button" class="btn secondary" id="storeTechBtn" hidden>🧑‍🔧 สำหรับช่าง — บันทึกการตรวจครั้งนี้ + แนบรูป</button>
     <div class="qrv-footer">🔧 บริการตรวจเช็คโดย บริษัทโอเมก้าอีสาน</div>
   </div>
 </div>
@@ -453,9 +454,23 @@
   <h3 id="qrTitle">QR ตรวจเช็ค PM</h3>
   <div class="qr-status" id="qrStatus"></div>
   <div id="qrHolder"></div>
-  <div class="qr-hint">ให้ลูกค้าสแกนด้วยกล้องมือถือ เพื่อดูรายละเอียดการตรวจเช็ค<br>(กดค้างที่รูป QR เพื่อบันทึกเป็นรูปภาพได้)</div>
+  <div class="qr-hint">พิมพ์หรือบันทึกรูป QR นี้ ไปติดหน้าเครื่องของร้านได้ถาวร<br>👀 ลูกค้าสแกน = เห็นการตรวจล่าสุด+รูป · 🧑‍🔧 ช่างสแกน = กดบันทึก PM + แนบรูปได้เลย<br>(กดค้างที่รูป QR เพื่อบันทึกเป็นรูปภาพ)</div>
   <button type="button" class="btn primary" id="qrShareBtn" style="background:var(--primary)">📤 แชร์ลิงก์ให้ลูกค้า</button>
   <button type="button" class="btn secondary" id="qrCloseBtn" style="margin-top:8px">ปิด</button>
+</div>
+
+<!-- ==================== รหัสช่าง (ตอนสแกน QR หน้าเครื่อง) ==================== -->
+<div class="sheet-overlay" id="pinOverlay"></div>
+<div class="sheet" id="pinSheet">
+  <div class="grip"></div>
+  <h3>🧑‍🔧 สำหรับช่างเท่านั้น</h3>
+  <div class="field">
+    <label for="pinInput">รหัสช่าง</label>
+    <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="ใส่รหัสช่าง">
+  </div>
+  <div class="err" id="pinErr"></div>
+  <button type="button" class="btn primary" id="pinOkBtn" style="background:var(--primary)">ยืนยัน</button>
+  <button type="button" class="btn secondary" id="pinCancelBtn" style="margin-top:8px">ยกเลิก</button>
 </div>
 
 <div id="toast"></div>
@@ -472,6 +487,9 @@
 
   // ลิงก์เว็บจริง — QR ต้องชี้ URL สาธารณะเสมอ เพื่อให้มือถือลูกค้าเปิดได้
   var PUBLIC_URL = "https://omega-payroll.vercel.app/pm.html";
+
+  // รหัสช่าง: ใช้ตอนสแกน QR หน้าเครื่องแล้วกด "สำหรับช่าง" (จำในเครื่องหลังใส่ครั้งแรก)
+  var TECH_PIN = "2569";
 
   // ---------- storage ----------
   function loadCustomers() {
@@ -517,6 +535,8 @@
     pmPhotos: $("pmPhotos"), pmAddPhotoBtn: $("pmAddPhotoBtn"), pmPhotoGrid: $("pmPhotoGrid"),
     pmSubmitBtn: $("pmSubmitBtn"),
     qvPhotoCard: $("qvPhotoCard"), qvPhotoTitle: $("qvPhotoTitle"), qvPhotoGrid: $("qvPhotoGrid"),
+    storeTechBtn: $("storeTechBtn"), pinOverlay: $("pinOverlay"), pinSheet: $("pinSheet"),
+    pinInput: $("pinInput"), pinErr: $("pinErr"), pinOkBtn: $("pinOkBtn"), pinCancelBtn: $("pinCancelBtn"),
     qrBtn: $("qrBtn"), qrOverlay: $("qrOverlay"), qrSheet: $("qrSheet"), qrTitle: $("qrTitle"),
     qrStatus: $("qrStatus"), qrHolder: $("qrHolder"), qrShareBtn: $("qrShareBtn"), qrCloseBtn: $("qrCloseBtn"),
     pageQrView: $("pageQrView"), qvIcon: $("qvIcon"), qvHead: $("qvHead"), qvBadge: $("qvBadge"),
@@ -929,6 +949,44 @@
       }).catch(function () { flash("⚠️ อ่านรูปไม่สำเร็จ 1 รูป"); });
     });
   });
+  // ---------- ซิงก์ข้อมูลขึ้น Supabase (ให้ QR ติดหน้าเครื่องแสดงข้อมูลล่าสุดเสมอ) ----------
+  function sbHeaders(json) {
+    var h = { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY };
+    if (json) h["Content-Type"] = "application/json";
+    return h;
+  }
+  function syncStore(c) {
+    return fetch(SUPABASE_URL + "/rest/v1/pm_stores", {
+      method: "POST",
+      headers: Object.assign(sbHeaders(true), { Prefer: "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify({
+        id: c.id, name: c.name, type: c.type || "", model: c.model || "",
+        phone: c.phone || "", address: c.address || "", cycle: Number(c.cycle) || 45
+      })
+    }).then(function (r) { if (!r.ok) throw new Error("store " + r.status); });
+  }
+  function syncRecord(storeId, entry) {
+    return fetch(SUPABASE_URL + "/rest/v1/pm_records", {
+      method: "POST",
+      headers: Object.assign(sbHeaders(true), { Prefer: "return=minimal" }),
+      body: JSON.stringify({
+        store_id: storeId, date: entry.date, tech: entry.tech || "",
+        note: entry.note || "", pf: entry.pf || "", pn: entry.pn || 0
+      })
+    }).then(function (r) { if (!r.ok) throw new Error("record " + r.status); });
+  }
+  // ใช้ตอนเปิด QR: ถ้าบันทึกล่าสุดในเครื่องยังไม่อยู่บนเว็บ (เช่นเคยบันทึกตอนเน็ตล่ม) ส่งขึ้นให้
+  function syncLatestIfMissing(c) {
+    return syncStore(c).then(function () {
+      var last = latestHistory(c);
+      if (!last) return;
+      return fetch(SUPABASE_URL + "/rest/v1/pm_records?store_id=eq." + encodeURIComponent(c.id) +
+          "&date=eq." + last.date + "&select=id&limit=1", { headers: sbHeaders() })
+        .then(function (r) { if (!r.ok) throw new Error("query"); return r.json(); })
+        .then(function (rows) { if (!rows.length) return syncRecord(c.id, last); });
+    });
+  }
+
   function uploadPmPhotos(folder, blobs, onProgress) {
     // อัปโหลดทีละรูปตามลำดับ คืนจำนวนที่สำเร็จ (หยุดเมื่อรูปไหนพลาด)
     var done = 0;
@@ -994,6 +1052,7 @@
 
   el.pmForm.addEventListener("submit", function (e) {
     e.preventDefault();
+    if (scanStore) { submitScanPm(); return; }   // โหมดสแกน QR หน้าเครื่อง
     var c = custById(currentId);
     if (!c) { closePmSheet(); return; }
     var date = el.pmDate.value || todayStr();
@@ -1004,6 +1063,8 @@
       c.history.push(entry);
       c.lastPM = date;   // เริ่มนับรอบใหม่
       saveCustomers();
+      // ส่งขึ้นเว็บให้ QR หน้าเครื่องเห็นข้อมูลล่าสุด (พลาดก็ไม่เป็นไร — เปิด QR ครั้งหน้าจะซิงก์ซ้ำให้)
+      syncStore(c).then(function () { return syncRecord(c.id, entry); }).catch(function () {});
       resetPmPhotos();
       el.pmSubmitBtn.disabled = false;
       el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
@@ -1050,6 +1111,7 @@
   }
 
   var qrShareUrl = "";
+  var qrSyncSeq = 0;
   function openQrSheet(id) {
     var c = custById(id);
     if (!c) return;
@@ -1057,27 +1119,33 @@
       flash("⚠️ โหลดตัวสร้าง QR ไม่สำเร็จ — ต่ออินเทอร์เน็ตแล้วรีเฟรชหน้า");
       return;
     }
-    var last = latestHistory(c);
-    var payload = {
-      v: 1, n: c.name, t: c.type || "", m: c.model || "",
-      d: c.lastPM || "", nd: c.lastPM ? nextDue(c) : "",
-      tech: (last && last.tech) || "", w: ((last && last.note) || "").slice(0, 150)
-    };
-    if (last && last.pf && last.pn) { payload.pf = last.pf; payload.pn = last.pn; }
-    qrShareUrl = PUBLIC_URL + "#qr=" + b64uEncode(payload);
+    // QR ประจำร้าน: เก็บแค่รหัสร้าน — สแกนเมื่อไหร่ก็เห็นการตรวจล่าสุดจากเว็บเสมอ ติดหน้าเครื่องได้ถาวร
+    qrShareUrl = PUBLIC_URL + "#store=" + encodeURIComponent(c.id);
     var qr = qrcode(0, "M");
     qr.addData(qrShareUrl);
     qr.make();
-    el.qrHolder.innerHTML = qr.createImgTag(5, 8);
-    el.qrTitle.textContent = "QR ตรวจเช็ค · " + c.name;
+    el.qrHolder.innerHTML = qr.createImgTag(6, 8);
+    el.qrTitle.textContent = "QR ประจำร้าน · " + c.name;
+    var last = latestHistory(c);
     var photoTxt = (last && last.pn) ? " · 📷 มีรูปแนบ " + last.pn + " รูป" : "";
+    var base;
     if (sameMonth(c.lastPM)) {
       el.qrStatus.className = "qr-status ok";
-      el.qrStatus.textContent = "✅ ร้านนี้ตรวจเช็คเดือนนี้แล้ว (" + fmtThai(c.lastPM) + ")" + photoTxt + " — ลูกค้าสแกนแล้วจะเห็นข้อความยืนยัน";
+      base = "✅ ตรวจเช็คเดือนนี้แล้ว (" + fmtThai(c.lastPM) + ")" + photoTxt;
     } else {
       el.qrStatus.className = "qr-status warn";
-      el.qrStatus.textContent = "⚠️ ยังไม่มีบันทึก PM เดือนนี้ — QR จะแสดงการตรวจล่าสุด " + fmtThai(c.lastPM) + " · ถ้าเพิ่งตรวจเสร็จ กด “✓ ทำ PM วันนี้แล้ว” ก่อน แล้วค่อยสร้าง QR ใหม่";
+      base = "⚠️ เดือนนี้ยังไม่มีบันทึก PM — คนสแกนจะเห็นการตรวจล่าสุด " + fmtThai(c.lastPM) + photoTxt;
     }
+    var seq = ++qrSyncSeq;
+    el.qrStatus.textContent = base + " · ⏳ กำลังซิงก์ขึ้นเว็บ...";
+    syncLatestIfMissing(c).then(function () {
+      if (seq !== qrSyncSeq) return;
+      el.qrStatus.textContent = base + " · ☁️ ซิงก์แล้ว";
+    }).catch(function () {
+      if (seq !== qrSyncSeq) return;
+      el.qrStatus.className = "qr-status warn";
+      el.qrStatus.textContent = base + " · ⚠️ ซิงก์ขึ้นเว็บไม่สำเร็จ (เช็คเน็ต) — เปิด QR นี้ใหม่เมื่อมีเน็ต ไม่งั้นคนสแกนจะไม่เห็นข้อมูลล่าสุด";
+    });
     el.qrOverlay.classList.add("show");
     el.qrSheet.classList.add("show");
   }
@@ -1098,6 +1166,151 @@
       flash("⚠️ เบราว์เซอร์นี้ไม่รองรับการแชร์ — ให้ลูกค้าสแกน QR แทน");
     }
   });
+
+  // ---------- โหมด QR ติดหน้าเครื่อง (#store=<รหัสร้าน>) ----------
+  // ดึงข้อมูลร้าน + การตรวจล่าสุดจากเว็บ — ลูกค้าเห็นสถานะสด ช่างกดบันทึก PM ได้เลย
+  var scanStore = null, scanRecord = null;
+
+  function showScanShell() {
+    el.pageList.hidden = true;
+    el.pageDetail.hidden = true;
+    el.fabAdd.hidden = true;
+    el.pageQrView.hidden = false;
+  }
+  function renderStoreView(store, rec) {
+    scanStore = store; scanRecord = rec || null;
+    var checked = rec && sameMonth(rec.date);
+    el.qvIcon.textContent = checked ? "✓" : "🕐";
+    el.qvIcon.className = "qrv-check" + (checked ? "" : " warn");
+    el.qvHead.textContent = store.name;
+    el.qvBadge.hidden = false;
+    el.qvBadge.className = "count-badge " + (checked ? "green" : "yellow");
+    el.qvBadge.textContent = checked
+      ? "✅ ช่างเข้าตรวจเช็คเดือนนี้แล้ว"
+      : (rec ? "🕐 ตรวจเช็คล่าสุด " + fmtThai(rec.date) : "ยังไม่มีข้อมูลการตรวจเช็ค");
+    el.qvDate.textContent = rec ? fmtThai(rec.date) : "-";
+    el.qvTech.textContent = (rec && rec.tech) || "-";
+    el.qvWorkRow.hidden = !(rec && rec.note);
+    el.qvWork.textContent = (rec && rec.note) || "";
+    el.qvType.textContent = store.type || "-";
+    el.qvModel.textContent = store.model || "-";
+    el.qvNext.textContent = rec ? fmtThai(addDays(rec.date, Number(store.cycle) || 45)) : "-";
+    if (rec && rec.pf && rec.pn) {
+      el.qvPhotoTitle.textContent = "📷 รูปจุดที่ตรวจเช็ค (" + rec.pn + " รูป)";
+      el.qvPhotoGrid.innerHTML = photoLinks(rec.pf, rec.pn);
+      el.qvPhotoCard.hidden = false;
+    } else {
+      el.qvPhotoCard.hidden = true;
+    }
+    el.storeTechBtn.hidden = false;
+  }
+  function loadStoreView(id) {
+    showScanShell();
+    el.qvIcon.textContent = "⏳";
+    el.qvIcon.className = "qrv-check warn";
+    el.qvHead.textContent = "กำลังโหลดข้อมูล...";
+    el.qvBadge.hidden = true;
+    el.qvPhotoCard.hidden = true;
+    el.qvWorkRow.hidden = true;
+    el.qvDate.textContent = el.qvTech.textContent = el.qvType.textContent = el.qvModel.textContent = el.qvNext.textContent = "-";
+    Promise.all([
+      fetch(SUPABASE_URL + "/rest/v1/pm_stores?id=eq." + encodeURIComponent(id) + "&limit=1", { headers: sbHeaders() })
+        .then(function (r) { if (!r.ok) throw new Error("s"); return r.json(); }),
+      fetch(SUPABASE_URL + "/rest/v1/pm_records?store_id=eq." + encodeURIComponent(id) + "&order=date.desc,created_at.desc&limit=1", { headers: sbHeaders() })
+        .then(function (r) { if (!r.ok) throw new Error("r"); return r.json(); })
+    ]).then(function (rs) {
+      if (!rs[0].length) {
+        el.qvIcon.textContent = "❓";
+        el.qvHead.textContent = "ไม่พบข้อมูลร้านนี้";
+        el.qvBadge.hidden = false;
+        el.qvBadge.className = "count-badge yellow";
+        el.qvBadge.textContent = "ให้ช่างเปิดแอปแล้วกดปุ่ม QR ของร้านนี้ 1 ครั้ง เพื่อซิงก์ข้อมูล";
+        return;
+      }
+      renderStoreView(rs[0][0], rs[1][0] || null);
+    }).catch(function () {
+      el.qvIcon.textContent = "⚠️";
+      el.qvHead.textContent = "โหลดข้อมูลไม่สำเร็จ";
+      el.qvBadge.hidden = false;
+      el.qvBadge.className = "count-badge yellow";
+      el.qvBadge.textContent = "เช็คสัญญาณเน็ต แล้วลองสแกนใหม่อีกครั้ง";
+    });
+  }
+  function tryOpenStoreView() {
+    var m = location.hash.match(/^#store=([A-Za-z0-9_.~%-]+)$/);
+    if (!m) return false;
+    var id;
+    try { id = decodeURIComponent(m[1]); } catch (e) { id = m[1]; }
+    loadStoreView(id);
+    return true;
+  }
+
+  // ปุ่ม "สำหรับช่าง" — ต้องใส่รหัสช่างครั้งแรก แล้วจำไว้ในเครื่อง
+  function closePinSheet() {
+    el.pinOverlay.classList.remove("show");
+    el.pinSheet.classList.remove("show");
+  }
+  function openScanPmSheet() {
+    openPmSheet();
+    if (scanRecord && scanRecord.tech && !el.pmTech.value) el.pmTech.value = scanRecord.tech;
+  }
+  el.storeTechBtn.addEventListener("click", function () {
+    var ok = false;
+    try { ok = localStorage.getItem("omega_pm_tech_ok") === "1"; } catch (e) {}
+    if (ok) { openScanPmSheet(); return; }
+    el.pinInput.value = "";
+    el.pinErr.textContent = "";
+    el.pinOverlay.classList.add("show");
+    el.pinSheet.classList.add("show");
+  });
+  el.pinCancelBtn.addEventListener("click", closePinSheet);
+  el.pinOverlay.addEventListener("click", closePinSheet);
+  el.pinOkBtn.addEventListener("click", function () {
+    if (el.pinInput.value.trim() === TECH_PIN) {
+      try { localStorage.setItem("omega_pm_tech_ok", "1"); } catch (e) {}
+      closePinSheet();
+      openScanPmSheet();
+    } else {
+      el.pinErr.textContent = "รหัสไม่ถูกต้อง";
+    }
+  });
+
+  // บันทึก PM จากการสแกน QR หน้าเครื่อง — ขึ้นเว็บเป็นหลัก (+ เข้าเครื่องช่างถ้ามีร้านนี้ในแอป)
+  function submitScanPm() {
+    var date = el.pmDate.value || todayStr();
+    var entry = { date: date, note: el.pmNote.value.trim(), tech: el.pmTech.value.trim() };
+    var folder = scanStore.id + "-" + date + "-" + Math.random().toString(36).slice(2, 6);
+    var blobs = pmPhotoFiles.map(function (p) { return p.blob; });
+    el.pmSubmitBtn.disabled = true;
+    var up = blobs.length === 0 ? Promise.resolve(0) : uploadPmPhotos(folder, blobs, function (i, n) {
+      el.pmSubmitBtn.textContent = "⏳ กำลังอัปโหลดรูป " + i + "/" + n + "...";
+    });
+    up.then(function (done) {
+      if (done > 0) { entry.pf = folder; entry.pn = done; }
+      el.pmSubmitBtn.textContent = "⏳ กำลังบันทึก...";
+      return syncRecord(scanStore.id, entry).then(function () { return done; });
+    }).then(function (done) {
+      var lc = custById(scanStore.id);
+      if (lc) {
+        if (!lc.history) lc.history = [];
+        lc.history.push(entry);
+        lc.lastPM = date;
+        saveCustomers();
+      }
+      resetPmPhotos();
+      el.pmSubmitBtn.disabled = false;
+      el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
+      closePmSheet();
+      flash(blobs.length && done < blobs.length
+        ? "⚠️ อัปโหลดรูปได้ " + done + "/" + blobs.length + " รูป — บันทึก PM แล้ว"
+        : "✅ บันทึก PM แล้ว");
+      loadStoreView(scanStore.id);
+    }).catch(function () {
+      el.pmSubmitBtn.disabled = false;
+      el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
+      flash("⚠️ บันทึกขึ้นเว็บไม่สำเร็จ — เช็คสัญญาณเน็ตแล้วกดบันทึกอีกครั้ง");
+    });
+  }
 
   // หน้าบัตรตรวจเช็ค — เปิดเมื่อลูกค้าสแกน QR (ข้อมูลอยู่ใน #qr=... ของลิงก์)
   function tryOpenQrView() {
@@ -1147,7 +1360,7 @@
   });
 
   // ---------- init ----------
-  if (!tryOpenQrView()) renderList();
+  if (!tryOpenStoreView() && !tryOpenQrView()) renderList();
 })();
 </script>
 </body>
