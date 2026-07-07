@@ -492,20 +492,76 @@
   var TECH_PIN = "2569";
 
   // ---------- storage ----------
-  function loadCustomers() {
+  // ข้อมูลหลักอยู่บนเว็บ (ตาราง pm_stores/pm_records ใน Supabase) ทุกเครื่องเห็นชุดเดียวกัน
+  // localStorage เป็นแค่แคชล่าสุดไว้ดูตอนออฟไลน์ + ที่พักข้อมูลเก่ารอย้ายขึ้นเว็บ
+  function loadCache() {
     try {
       var raw = localStorage.getItem(STORE_KEY);
       var data = raw ? JSON.parse(raw) : [];
       return Array.isArray(data) ? data : [];
     } catch (e) { return []; }
   }
-  function saveCustomers() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(customers)); }
-    catch (e) { flash("⚠️ บันทึกข้อมูลไม่สำเร็จ (พื้นที่เก็บเต็ม?)"); }
+  function saveCache() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(customers)); } catch (e) {}
+  }
+  function storeRowToCust(s, old) {
+    return {
+      id: s.id, name: s.name, phone: s.phone || "", type: s.type || "",
+      model: s.model || "", address: s.address || "", cycle: s.cycle || 45,
+      note: s.note || "", lastPM: s.last_pm || "",
+      history: (old && old.history) || null   // โหลดตอนเปิดหน้ารายละเอียด
+    };
+  }
+  function fetchCustomers() {
+    return fetch(SUPABASE_URL + "/rest/v1/pm_stores?active=eq.true&order=name", { headers: sbHeaders() })
+      .then(function (r) { if (!r.ok) throw new Error("fetch " + r.status); return r.json(); })
+      .then(function (rows) {
+        var oldById = {};
+        customers.forEach(function (c) { oldById[c.id] = c; });
+        customers = rows.map(function (s) { return storeRowToCust(s, oldById[s.id]); });
+        saveCache();
+      });
+  }
+  // ย้ายข้อมูลที่เคยเก็บในเครื่อง (ยุค localStorage) ขึ้นเว็บครั้งเดียวต่อเครื่อง
+  var MIGRATED_KEY = "omega_pm_synced_v2";
+  function migrateLocalToCloud() {
+    var flagged = false;
+    try { flagged = localStorage.getItem(MIGRATED_KEY) === "1"; } catch (e) {}
+    if (flagged) return Promise.resolve();
+    var locals = loadCache();
+    if (!locals.length) {
+      try { localStorage.setItem(MIGRATED_KEY, "1"); } catch (e) {}
+      return Promise.resolve();
+    }
+    var p = Promise.resolve();
+    locals.forEach(function (c) {
+      p = p.then(function () {
+        return syncStore(c).then(function () {
+          var hist = c.history || [];
+          if (!hist.length) return;
+          return fetch(SUPABASE_URL + "/rest/v1/pm_records?store_id=eq." + encodeURIComponent(c.id) + "&select=date", { headers: sbHeaders() })
+            .then(function (r) { if (!r.ok) throw new Error("q"); return r.json(); })
+            .then(function (rows) {
+              var have = {};
+              rows.forEach(function (x) { have[x.date] = true; });
+              var q = Promise.resolve();
+              hist.forEach(function (h) {
+                if (!have[h.date]) q = q.then(function () { return syncRecord(c.id, h); });
+              });
+              return q;
+            });
+        });
+      });
+    });
+    return p.then(function () {
+      try { localStorage.setItem(MIGRATED_KEY, "1"); } catch (e) {}
+      flash("☁️ ย้ายข้อมูลในเครื่องขึ้นเว็บแล้ว " + locals.length + " ร้าน");
+    });
   }
 
   // ---------- state ----------
-  var customers = loadCustomers();
+  var customers = loadCache();  // โชว์แคชไปก่อน แล้วข้อมูลจริงจากเว็บจะมาแทน
+  var cloudLoaded = false;      // โหลดจากเว็บสำเร็จแล้วหรือยัง
   var statusFilter = "";      // "" | red | yellow | green
   var currentId = null;       // ลูกค้าที่เปิดหน้ารายละเอียดอยู่
   var editingId = null;       // ลูกค้าที่กำลังแก้ไขในฟอร์ม (null = เพิ่มใหม่)
@@ -566,22 +622,24 @@
     d.setDate(d.getDate() + n);
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
-  // วันครบรอบ = วัน PM ล่าสุด + รอบ · วันที่เหลือ = วันครบรอบ − วันนี้
-  function nextDue(c) { return addDays(c.lastPM, Number(c.cycle) || 0); }
+  // วันครบรอบ = วัน PM ล่าสุด + รอบ · วันที่เหลือ = วันครบรอบ − วันนี้ (null = ยังไม่เคยทำ PM)
+  function nextDue(c) { return c.lastPM ? addDays(c.lastPM, Number(c.cycle) || 0) : ""; }
   function daysLeft(c) {
+    if (!c.lastPM) return null;
     var due = new Date(nextDue(c) + "T00:00:00");
     var today = new Date(todayStr() + "T00:00:00");
     return Math.round((due - today) / 86400000);
   }
-  // ติดลบ = เกินกำหนด · 0–7 = ใกล้ครบ · >7 = ปกติ
+  // ติดลบ/ไม่เคยทำ = เกินกำหนด · 0–7 = ใกล้ครบ · >7 = ปกติ
   function statusOf(c) {
     var d = daysLeft(c);
-    if (d < 0) return "red";
+    if (d === null || d < 0) return "red";
     if (d <= 7) return "yellow";
     return "green";
   }
   function daysText(c) {
     var d = daysLeft(c);
+    if (d === null) return "ยังไม่มีบันทึก PM";
     if (d < 0) return "เกิน " + Math.abs(d) + " วัน";
     if (d === 0) return "ครบวันนี้";
     return "อีก " + d + " วัน";
@@ -615,15 +673,20 @@
       var hitS = !statusFilter || statusOf(c) === statusFilter;
       return hitQ && hitS;
     });
-    // ใกล้ครบ/เกินกำหนดมากสุดอยู่บนสุด
-    list.sort(function (a, b) { return daysLeft(a) - daysLeft(b); });
+    // ใกล้ครบ/เกินกำหนดมากสุดอยู่บนสุด (ยังไม่เคยทำ PM = ด่วนสุด)
+    var sk = function (x) { var d = daysLeft(x); return d === null ? -99999 : d; };
+    list.sort(function (a, b) { return sk(a) - sk(b); });
 
-    el.listEmpty.hidden = !(customers.length === 0);
+    el.listEmpty.hidden = !(customers.length === 0 && cloudLoaded);
+    if (customers.length === 0 && !cloudLoaded) {
+      el.custList.innerHTML = '<div class="empty">⏳ กำลังโหลดข้อมูลจากเว็บ...</div>';
+      return;
+    }
     el.custList.innerHTML = list.map(function (c) {
       var st = statusOf(c);
       var d = daysLeft(c);
-      var dn = d < 0 ? "-" + Math.abs(d) : String(d);
-      var dl = d < 0 ? "เกินกำหนด (วัน)" : d === 0 ? "ครบวันนี้" : "เหลือ (วัน)";
+      var dn = d === null ? "–" : d < 0 ? "-" + Math.abs(d) : String(d);
+      var dl = d === null ? "ยังไม่มี PM" : d < 0 ? "เกินกำหนด (วัน)" : d === 0 ? "ครบวันนี้" : "เหลือ (วัน)";
       return '<div class="cust-card ' + st + '" data-id="' + c.id + '">' +
         '<div class="info">' +
           '<div class="name">' + esc(c.name) + "</div>" +
@@ -668,11 +731,12 @@
     el.dBadge.className = "count-badge " + st;
 
     // progress: ใช้รอบไปแล้วกี่ %
-    var used = cyc - daysLeft(c);
+    var dl0 = daysLeft(c);
+    var used = dl0 === null ? 0 : cyc - dl0;
     var pct = cyc > 0 ? Math.round(used / cyc * 100) : 0;
     var pctClamped = Math.max(0, Math.min(100, pct));
-    el.dProgText.textContent = "ใช้รอบไปแล้ว " + Math.max(0, used) + "/" + cyc + " วัน";
-    el.dProgPct.textContent = pct + "%";
+    el.dProgText.textContent = dl0 === null ? "ยังไม่มีบันทึก PM" : "ใช้รอบไปแล้ว " + Math.max(0, used) + "/" + cyc + " วัน";
+    el.dProgPct.textContent = dl0 === null ? "" : pct + "%";
     el.dProgFill.style.width = pctClamped + "%";
     el.dProgFill.className = "progress-fill " + st;
 
@@ -693,7 +757,34 @@
     el.dNote.hidden = !c.note;
     el.dNote.textContent = c.note ? "📝 " + c.note : "";
 
-    var hist = (c.history || []).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    renderHistory(c);
+    // ประวัติอยู่บนเว็บ — โหลดสดทุกครั้งที่เปิด (เห็นบันทึกจากเครื่องอื่นด้วย)
+    fetchHistory(c).then(function () {
+      if (currentId === id) renderHistory(c);
+    }).catch(function () {
+      if (currentId === id && !c.history) {
+        el.dHistory.innerHTML = '<div class="hist-empty">⚠️ โหลดประวัติไม่สำเร็จ (เช็คสัญญาณเน็ต)</div>';
+      }
+    });
+
+    el.pageList.hidden = true;
+    el.fabAdd.hidden = true;
+    el.pageDetail.hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  function fetchHistory(c) {
+    return fetch(SUPABASE_URL + "/rest/v1/pm_records?store_id=eq." + encodeURIComponent(c.id) +
+        "&order=date.desc,created_at.desc&select=date,tech,note,pf,pn", { headers: sbHeaders() })
+      .then(function (r) { if (!r.ok) throw new Error("hist " + r.status); return r.json(); })
+      .then(function (rows) { c.history = rows; });
+  }
+  function renderHistory(c) {
+    if (!c.history) {
+      el.dHistory.innerHTML = '<div class="hist-empty">⏳ กำลังโหลดประวัติ...</div>';
+      return;
+    }
+    var hist = c.history.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
     el.dHistory.innerHTML = hist.length === 0
       ? '<div class="hist-empty">ยังไม่มีประวัติการทำ PM</div>'
       : hist.map(function (h) {
@@ -704,11 +795,6 @@
             (h.pf && h.pn ? '<div class="photo-grid small">' + photoLinks(h.pf, h.pn) + "</div>" : "") +
             "</div></div>";
         }).join("");
-
-    el.pageList.hidden = true;
-    el.fabAdd.hidden = true;
-    el.pageDetail.hidden = false;
-    window.scrollTo(0, 0);
   }
 
   function backToList() {
@@ -853,19 +939,25 @@
       cycle: cycle,
       note: el.fNote.value.trim()
     };
-    if (editingId) {
-      var c = custById(editingId);
-      if (c) Object.assign(c, data);
-      flash("✅ แก้ไขข้อมูลแล้ว");
-    } else {
-      data.id = newId();
-      data.history = [];
-      customers.push(data);
-      flash("✅ เพิ่มลูกค้าแล้ว");
-    }
-    saveCustomers();
-    closeCustSheet();
-    if (currentId) openDetail(currentId); else renderList();
+    // บันทึกขึ้นเว็บก่อน (ทุกเครื่องจะเห็นเหมือนกัน) สำเร็จแล้วค่อยอัปเดตหน้าจอ
+    var target = editingId ? custById(editingId) : null;
+    var obj = Object.assign({}, target || {}, data);
+    if (!editingId) { obj.id = newId(); obj.history = []; }
+    var sbtn = el.custForm.querySelector('button[type="submit"]');
+    sbtn.disabled = true;
+    el.fErr.textContent = "";
+    syncStore(obj).then(function () {
+      if (target) Object.assign(target, data);
+      else customers.push(obj);
+      saveCache();
+      sbtn.disabled = false;
+      closeCustSheet();
+      flash(editingId ? "✅ แก้ไขข้อมูลแล้ว" : "✅ เพิ่มลูกค้าแล้ว");
+      if (currentId) openDetail(currentId); else renderList();
+    }).catch(function () {
+      sbtn.disabled = false;
+      el.fErr.textContent = "บันทึกขึ้นเว็บไม่สำเร็จ — เช็คสัญญาณเน็ตแล้วกดบันทึกอีกครั้ง";
+    });
   });
 
   // ---------- รูปการตรวจเช็ค ----------
@@ -961,7 +1053,8 @@
       headers: Object.assign(sbHeaders(true), { Prefer: "resolution=merge-duplicates,return=minimal" }),
       body: JSON.stringify({
         id: c.id, name: c.name, type: c.type || "", model: c.model || "",
-        phone: c.phone || "", address: c.address || "", cycle: Number(c.cycle) || 45
+        phone: c.phone || "", address: c.address || "", cycle: Number(c.cycle) || 45,
+        note: c.note || "", last_pm: c.lastPM || null, active: true
       })
     }).then(function (r) { if (!r.ok) throw new Error("store " + r.status); });
   }
@@ -975,18 +1068,6 @@
       })
     }).then(function (r) { if (!r.ok) throw new Error("record " + r.status); });
   }
-  // ใช้ตอนเปิด QR: ถ้าบันทึกล่าสุดในเครื่องยังไม่อยู่บนเว็บ (เช่นเคยบันทึกตอนเน็ตล่ม) ส่งขึ้นให้
-  function syncLatestIfMissing(c) {
-    return syncStore(c).then(function () {
-      var last = latestHistory(c);
-      if (!last) return;
-      return fetch(SUPABASE_URL + "/rest/v1/pm_records?store_id=eq." + encodeURIComponent(c.id) +
-          "&date=eq." + last.date + "&select=id&limit=1", { headers: sbHeaders() })
-        .then(function (r) { if (!r.ok) throw new Error("query"); return r.json(); })
-        .then(function (rows) { if (!rows.length) return syncRecord(c.id, last); });
-    });
-  }
-
   function uploadPmPhotos(folder, blobs, onProgress) {
     // อัปโหลดทีละรูปตามลำดับ คืนจำนวนที่สำเร็จ (หยุดเมื่อรูปไหนพลาด)
     var done = 0;
@@ -1032,6 +1113,26 @@
   function openPmSheet() {
     el.pmDate.value = todayStr();
     el.pmTech.value = lastTechUsed();  // เติมชื่อช่างครั้งล่าสุดให้ แก้ได้
+    // ดึงชื่อช่างจากบันทึกบนเว็บ (ประวัติไม่ได้อยู่ในเครื่องแล้ว)
+    fetch(SUPABASE_URL + "/rest/v1/pm_records?select=tech,date&order=date.desc,created_at.desc&limit=100", { headers: sbHeaders() })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        var set = {}, lastT = "";
+        rows.forEach(function (x) {
+          if (!lastT && x.tech) lastT = x.tech;
+          String(x.tech || "").split(",").forEach(function (t) {
+            t = t.trim();
+            if (t) set[t] = true;
+          });
+        });
+        var names = Object.keys(set).sort(function (a, b) { return a.localeCompare(b, "th"); });
+        if (names.length) {
+          el.techList.innerHTML = names.map(function (t) {
+            return '<option value="' + t.replace(/"/g, "&quot;") + '"></option>';
+          }).join("");
+        }
+        if (!el.pmTech.value && lastT) el.pmTech.value = lastT;
+      }).catch(function () {});
     el.pmNote.value = "";
     resetPmPhotos();
     el.pmSubmitBtn.disabled = false;
@@ -1057,35 +1158,34 @@
     if (!c) { closePmSheet(); return; }
     var date = el.pmDate.value || todayStr();
     var entry = { date: date, note: el.pmNote.value.trim(), tech: el.pmTech.value.trim() };
-
-    function finish(msg) {
+    var folder = (c.id || "x") + "-" + date + "-" + Math.random().toString(36).slice(2, 6);
+    var blobs = pmPhotoFiles.map(function (p) { return p.blob; });
+    el.pmSubmitBtn.disabled = true;
+    var up = blobs.length === 0 ? Promise.resolve(0) : uploadPmPhotos(folder, blobs, function (i, n) {
+      el.pmSubmitBtn.textContent = "⏳ กำลังอัปโหลดรูป " + i + "/" + n + "...";
+    });
+    up.then(function (done) {
+      if (done > 0) { entry.pf = folder; entry.pn = done; }
+      el.pmSubmitBtn.textContent = "⏳ กำลังบันทึกขึ้นเว็บ...";
+      // บันทึกขึ้นเว็บต้องสำเร็จก่อน — ทุกเครื่อง (และ QR หน้าเครื่อง) จะได้เห็นตรงกัน
+      return syncStore(c).then(function () { return syncRecord(c.id, entry); }).then(function () { return done; });
+    }).then(function (done) {
       if (!c.history) c.history = [];
       c.history.push(entry);
       c.lastPM = date;   // เริ่มนับรอบใหม่
-      saveCustomers();
-      // ส่งขึ้นเว็บให้ QR หน้าเครื่องเห็นข้อมูลล่าสุด (พลาดก็ไม่เป็นไร — เปิด QR ครั้งหน้าจะซิงก์ซ้ำให้)
-      syncStore(c).then(function () { return syncRecord(c.id, entry); }).catch(function () {});
+      saveCache();
       resetPmPhotos();
       el.pmSubmitBtn.disabled = false;
       el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
       closePmSheet();
-      flash(msg);
+      flash(blobs.length && done < blobs.length
+        ? "⚠️ อัปโหลดรูปได้ " + done + "/" + blobs.length + " รูป — บันทึก PM แล้ว"
+        : "✅ บันทึก PM แล้ว เริ่มนับรอบใหม่");
       openDetail(currentId);
-    }
-
-    if (pmPhotoFiles.length === 0) { finish("✅ บันทึก PM แล้ว เริ่มนับรอบใหม่"); return; }
-
-    // อัปโหลดรูปก่อน แล้วค่อยบันทึก (ถ้าเน็ตล่มกลางทาง บันทึก PM พร้อมรูปเท่าที่อัปได้)
-    var folder = (c.id || "x") + "-" + date + "-" + Math.random().toString(36).slice(2, 6);
-    var blobs = pmPhotoFiles.map(function (p) { return p.blob; });
-    el.pmSubmitBtn.disabled = true;
-    uploadPmPhotos(folder, blobs, function (i, n) {
-      el.pmSubmitBtn.textContent = "⏳ กำลังอัปโหลดรูป " + i + "/" + n + "...";
-    }).then(function (done) {
-      if (done > 0) { entry.pf = folder; entry.pn = done; }
-      finish(done === blobs.length
-        ? "✅ บันทึก PM พร้อมรูป " + done + " รูปแล้ว"
-        : "⚠️ อัปโหลดรูปได้ " + done + "/" + blobs.length + " รูป — บันทึก PM เรียบร้อย");
+    }).catch(function () {
+      el.pmSubmitBtn.disabled = false;
+      el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
+      flash("⚠️ บันทึกขึ้นเว็บไม่สำเร็จ — เช็คสัญญาณเน็ตแล้วกดบันทึกอีกครั้ง");
     });
   });
 
@@ -1104,11 +1204,6 @@
   function sameMonth(dateStr) {
     return !!dateStr && String(dateStr).slice(0, 7) === todayStr().slice(0, 7);
   }
-  function latestHistory(c) {
-    var best = null;
-    (c.history || []).forEach(function (h) { if (!best || h.date > best.date) best = h; });
-    return best;
-  }
 
   var qrShareUrl = "";
   var qrSyncSeq = 0;
@@ -1126,25 +1221,32 @@
     qr.make();
     el.qrHolder.innerHTML = qr.createImgTag(6, 8);
     el.qrTitle.textContent = "QR ประจำร้าน · " + c.name;
-    var last = latestHistory(c);
-    var photoTxt = (last && last.pn) ? " · 📷 มีรูปแนบ " + last.pn + " รูป" : "";
     var base;
     if (sameMonth(c.lastPM)) {
       el.qrStatus.className = "qr-status ok";
-      base = "✅ ตรวจเช็คเดือนนี้แล้ว (" + fmtThai(c.lastPM) + ")" + photoTxt;
+      base = "✅ ตรวจเช็คเดือนนี้แล้ว (" + fmtThai(c.lastPM) + ")";
     } else {
       el.qrStatus.className = "qr-status warn";
-      base = "⚠️ เดือนนี้ยังไม่มีบันทึก PM — คนสแกนจะเห็นการตรวจล่าสุด " + fmtThai(c.lastPM) + photoTxt;
+      base = c.lastPM
+        ? "⚠️ เดือนนี้ยังไม่มีบันทึก PM — คนสแกนจะเห็นการตรวจล่าสุด " + fmtThai(c.lastPM)
+        : "⚠️ ร้านนี้ยังไม่มีบันทึก PM เลย";
     }
     var seq = ++qrSyncSeq;
-    el.qrStatus.textContent = base + " · ⏳ กำลังซิงก์ขึ้นเว็บ...";
-    syncLatestIfMissing(c).then(function () {
+    el.qrStatus.textContent = base + " · ⏳ กำลังเช็คข้อมูลบนเว็บ...";
+    Promise.all([
+      syncStore(c),   // กันร้านยังไม่อยู่บนเว็บ (เช่น QR ใบแรกของร้าน)
+      fetch(SUPABASE_URL + "/rest/v1/pm_records?store_id=eq." + encodeURIComponent(c.id) +
+          "&order=date.desc,created_at.desc&limit=1&select=pn", { headers: sbHeaders() })
+        .then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+    ]).then(function (rs) {
       if (seq !== qrSyncSeq) return;
-      el.qrStatus.textContent = base + " · ☁️ ซิงก์แล้ว";
+      var rec = rs[1][0];
+      var photoTxt = (rec && rec.pn) ? " · 📷 มีรูปแนบ " + rec.pn + " รูป" : "";
+      el.qrStatus.textContent = base + photoTxt + " · ☁️ พร้อมใช้งาน";
     }).catch(function () {
       if (seq !== qrSyncSeq) return;
       el.qrStatus.className = "qr-status warn";
-      el.qrStatus.textContent = base + " · ⚠️ ซิงก์ขึ้นเว็บไม่สำเร็จ (เช็คเน็ต) — เปิด QR นี้ใหม่เมื่อมีเน็ต ไม่งั้นคนสแกนจะไม่เห็นข้อมูลล่าสุด";
+      el.qrStatus.textContent = base + " · ⚠️ เช็คข้อมูลบนเว็บไม่สำเร็จ (เช็คเน็ต) — ก่อนพิมพ์ไปติด ให้เปิด QR นี้อีกครั้งตอนมีเน็ต";
     });
     el.qrOverlay.classList.add("show");
     el.qrSheet.classList.add("show");
@@ -1295,7 +1397,7 @@
         if (!lc.history) lc.history = [];
         lc.history.push(entry);
         lc.lastPM = date;
-        saveCustomers();
+        saveCache();
       }
       resetPmPhotos();
       el.pmSubmitBtn.disabled = false;
@@ -1348,19 +1450,47 @@
     return true;
   }
 
-  // ---------- ลบลูกค้า ----------
+  // ---------- ลบลูกค้า (ซ่อนจากทุกเครื่อง — ข้อมูลเดิมยังอยู่ในฐานข้อมูล กู้คืนได้) ----------
   el.deleteBtn.addEventListener("click", function () {
     var c = custById(currentId);
     if (!c) return;
-    if (!confirm('ลบลูกค้า "' + c.name + '" ?\nประวัติการทำ PM ทั้งหมดจะถูกลบด้วย')) return;
-    customers = customers.filter(function (x) { return x.id !== currentId; });
-    saveCustomers();
-    flash("🗑 ลบลูกค้าแล้ว");
-    backToList();
+    if (!confirm('ลบลูกค้า "' + c.name + '" ?\nร้านนี้จะหายจากรายชื่อของทุกเครื่อง')) return;
+    fetch(SUPABASE_URL + "/rest/v1/pm_stores?id=eq." + encodeURIComponent(c.id), {
+      method: "PATCH",
+      headers: Object.assign(sbHeaders(true), { Prefer: "return=minimal" }),
+      body: JSON.stringify({ active: false })
+    }).then(function (r) {
+      if (!r.ok) throw new Error("del " + r.status);
+      customers = customers.filter(function (x) { return x.id !== currentId; });
+      saveCache();
+      flash("🗑 ลบลูกค้าแล้ว");
+      backToList();
+    }).catch(function () {
+      flash("⚠️ ลบไม่สำเร็จ — เช็คสัญญาณเน็ตแล้วลองอีกครั้ง");
+    });
   });
 
   // ---------- init ----------
-  if (!tryOpenStoreView() && !tryOpenQrView()) renderList();
+  if (!tryOpenStoreView() && !tryOpenQrView()) {
+    renderList();  // โชว์แคช/สถานะกำลังโหลดไปก่อน
+    migrateLocalToCloud().catch(function () {})
+      .then(fetchCustomers)
+      .then(function () {
+        cloudLoaded = true;
+        renderList();
+      })
+      .catch(function () {
+        cloudLoaded = true;  // ออฟไลน์ — ใช้แคชในเครื่องไปก่อน
+        renderList();
+        flash("📴 โหลดจากเว็บไม่สำเร็จ — แสดงข้อมูลล่าสุดที่เคยโหลดไว้ในเครื่องนี้");
+      });
+    // กลับมาเปิดแอปเมื่อไหร่ รีเฟรชรายชื่อจากเว็บให้เอง (เห็นข้อมูลที่เครื่องอื่นเพิ่งบันทึก)
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden && cloudLoaded && !el.pageList.hidden) {
+        fetchCustomers().then(renderList).catch(function () {});
+      }
+    });
+  }
 })();
 </script>
 </body>
