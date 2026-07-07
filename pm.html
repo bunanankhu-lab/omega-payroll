@@ -225,6 +225,28 @@
   .qrv-check.warn { background: var(--yellow-bg); color: var(--yellow); }
   .qrv-footer { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 16px; }
 
+  /* รูปการตรวจเช็ค */
+  .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .photo-grid a { display: block; }
+  .photo-grid img {
+    width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+    border-radius: 10px; border: 1px solid var(--border); background: var(--bg);
+  }
+  .photo-grid.small { grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+  .photo-grid.small img { border-radius: 8px; }
+  .photo-thumb { position: relative; }
+  .photo-thumb .rm {
+    position: absolute; top: -7px; right: -7px; width: 24px; height: 24px;
+    background: var(--red); color: #fff; border: 2px solid #fff; border-radius: 50%;
+    font-size: 12px; line-height: 1; cursor: pointer; padding: 0;
+  }
+  .photo-add {
+    border: 1.5px dashed var(--primary); background: var(--primary-soft); color: var(--primary);
+    border-radius: 12px; padding: 12px; width: 100%; font-family: inherit;
+    font-size: .95rem; font-weight: 600; cursor: pointer;
+  }
+  .photo-add:active { opacity: .8; }
+
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -323,6 +345,11 @@
         <tr><td class="k">กำหนดตรวจครั้งถัดไป</td><td id="qvNext"></td></tr>
       </table>
     </div>
+    <div class="detail-card" id="qvPhotoCard" hidden>
+      <h3 style="margin:0 0 4px;font-size:1rem" id="qvPhotoTitle">📷 รูปจุดที่ตรวจเช็ค</h3>
+      <div class="sub" style="font-size:.8rem">แตะที่รูปเพื่อดูขนาดเต็ม</div>
+      <div class="photo-grid" id="qvPhotoGrid"></div>
+    </div>
     <div class="qrv-footer">🔧 บริการตรวจเช็คโดย บริษัทโอเมก้าอีสาน</div>
   </div>
 </div>
@@ -408,7 +435,13 @@
       <label for="pmNote">งานที่ทำ / อะไหล่ที่เปลี่ยน (ไม่บังคับ)</label>
       <textarea id="pmNote" rows="3" placeholder="เช่น ล้างหัวฉีด เปลี่ยนไส้กรอง เติมน้ำยา"></textarea>
     </div>
-    <button type="submit" class="btn primary">✓ บันทึก แล้วเริ่มนับรอบใหม่</button>
+    <div class="field">
+      <label>📷 รูปจุดที่ตรวจเช็ค (สูงสุด 7 รูป — ลูกค้าจะเห็นเมื่อสแกน QR)</label>
+      <input id="pmPhotos" type="file" accept="image/*" multiple hidden>
+      <button type="button" class="photo-add" id="pmAddPhotoBtn">＋ เพิ่มรูป (0/7)</button>
+      <div class="photo-grid" id="pmPhotoGrid"></div>
+    </div>
+    <button type="submit" class="btn primary" id="pmSubmitBtn">✓ บันทึก แล้วเริ่มนับรอบใหม่</button>
     <button type="button" class="btn secondary" id="pmCancelBtn" style="margin-top:8px">ยกเลิก</button>
   </form>
 </div>
@@ -481,6 +514,9 @@
     pmOverlay: $("pmOverlay"), pmSheet: $("pmSheet"), pmForm: $("pmForm"),
     pmDate: $("pmDate"), pmTech: $("pmTech"), techList: $("techList"),
     pmNote: $("pmNote"), pmCancelBtn: $("pmCancelBtn"),
+    pmPhotos: $("pmPhotos"), pmAddPhotoBtn: $("pmAddPhotoBtn"), pmPhotoGrid: $("pmPhotoGrid"),
+    pmSubmitBtn: $("pmSubmitBtn"),
+    qvPhotoCard: $("qvPhotoCard"), qvPhotoTitle: $("qvPhotoTitle"), qvPhotoGrid: $("qvPhotoGrid"),
     qrBtn: $("qrBtn"), qrOverlay: $("qrOverlay"), qrSheet: $("qrSheet"), qrTitle: $("qrTitle"),
     qrStatus: $("qrStatus"), qrHolder: $("qrHolder"), qrShareBtn: $("qrShareBtn"), qrCloseBtn: $("qrCloseBtn"),
     pageQrView: $("pageQrView"), qvIcon: $("qvIcon"), qvHead: $("qvHead"), qvBadge: $("qvBadge"),
@@ -641,10 +677,11 @@
     el.dHistory.innerHTML = hist.length === 0
       ? '<div class="hist-empty">ยังไม่มีประวัติการทำ PM</div>'
       : hist.map(function (h) {
-          return '<div class="hist-item"><div class="dot"></div><div>' +
+          return '<div class="hist-item"><div class="dot"></div><div style="flex:1;min-width:0">' +
             '<div class="d">' + fmtThai(h.date) + "</div>" +
             (h.tech ? '<div class="n">🧑‍🔧 ช่าง: ' + esc(h.tech) + "</div>" : "") +
             (h.note ? '<div class="n">' + esc(h.note) + "</div>" : "") +
+            (h.pf && h.pn ? '<div class="photo-grid small">' + photoLinks(h.pf, h.pn) + "</div>" : "") +
             "</div></div>";
         }).join("");
 
@@ -811,6 +848,106 @@
     if (currentId) openDetail(currentId); else renderList();
   });
 
+  // ---------- รูปการตรวจเช็ค ----------
+  // รูปเก็บใน Supabase Storage (bucket สาธารณะ pm-photos) เพราะใหญ่เกินกว่าจะฝังใน QR
+  // ใน history เก็บแค่ pf (โฟลเดอร์) + pn (จำนวนรูป) แล้วประกอบ URL เอาตอนแสดง
+  var MAX_PHOTOS = 7;
+  var pmPhotoFiles = [];   // { blob, url(พรีวิว) }
+
+  function photoUrl(pf, i) {
+    return SUPABASE_URL + "/storage/v1/object/public/pm-photos/" + encodeURIComponent(pf) + "/" + i + ".jpg";
+  }
+  function photoLinks(pf, pn) {
+    var s = "";
+    for (var i = 1; i <= pn; i++) {
+      var u = photoUrl(pf, i);
+      s += '<a href="' + u + '" target="_blank" rel="noopener"><img loading="lazy" src="' + u + '" alt="รูปตรวจเช็ค"></a>';
+    }
+    return s;
+  }
+  // ย่อรูปจากกล้องมือถือ (หลาย MB) ให้เหลือ ~ไม่กี่ร้อย KB ก่อนอัปโหลด
+  function compressImage(file) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var MAX = 1280, w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          var k = Math.min(MAX / w, MAX / h);
+          w = Math.round(w * k); h = Math.round(h * k);
+        }
+        var cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        cv.toBlob(function (b) { b ? resolve(b) : reject(new Error("compress fail")); }, "image/jpeg", 0.72);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error("read fail")); };
+      img.src = url;
+    });
+  }
+  function renderPmPhotos() {
+    el.pmAddPhotoBtn.textContent = "＋ เพิ่มรูป (" + pmPhotoFiles.length + "/" + MAX_PHOTOS + ")";
+    el.pmAddPhotoBtn.hidden = pmPhotoFiles.length >= MAX_PHOTOS;
+    el.pmPhotoGrid.innerHTML = "";
+    pmPhotoFiles.forEach(function (p, i) {
+      var d = document.createElement("div");
+      d.className = "photo-thumb";
+      var img = document.createElement("img");
+      img.src = p.url;
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "rm"; b.textContent = "✕";
+      b.addEventListener("click", function () {
+        URL.revokeObjectURL(p.url);
+        pmPhotoFiles.splice(i, 1);
+        renderPmPhotos();
+      });
+      d.appendChild(img); d.appendChild(b);
+      el.pmPhotoGrid.appendChild(d);
+    });
+  }
+  function resetPmPhotos() {
+    pmPhotoFiles.forEach(function (p) { URL.revokeObjectURL(p.url); });
+    pmPhotoFiles = [];
+    renderPmPhotos();
+  }
+  el.pmAddPhotoBtn.addEventListener("click", function () { el.pmPhotos.click(); });
+  el.pmPhotos.addEventListener("change", function () {
+    var files = Array.prototype.slice.call(el.pmPhotos.files || []);
+    el.pmPhotos.value = "";
+    if (!files.length) return;
+    var room = MAX_PHOTOS - pmPhotoFiles.length;
+    if (files.length > room) {
+      files = files.slice(0, room);
+      flash("⚠️ ใส่รูปได้สูงสุด " + MAX_PHOTOS + " รูป");
+    }
+    files.forEach(function (f) {
+      compressImage(f).then(function (blob) {
+        if (pmPhotoFiles.length >= MAX_PHOTOS) return;
+        pmPhotoFiles.push({ blob: blob, url: URL.createObjectURL(blob) });
+        renderPmPhotos();
+      }).catch(function () { flash("⚠️ อ่านรูปไม่สำเร็จ 1 รูป"); });
+    });
+  });
+  function uploadPmPhotos(folder, blobs, onProgress) {
+    // อัปโหลดทีละรูปตามลำดับ คืนจำนวนที่สำเร็จ (หยุดเมื่อรูปไหนพลาด)
+    var done = 0;
+    function next() {
+      if (done >= blobs.length) return Promise.resolve(done);
+      onProgress(done + 1, blobs.length);
+      return fetch(SUPABASE_URL + "/storage/v1/object/pm-photos/" + folder + "/" + (done + 1) + ".jpg", {
+        method: "POST",
+        headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY, "Content-Type": "image/jpeg" },
+        body: blobs[done]
+      }).then(function (r) {
+        if (!r.ok) throw new Error("upload " + r.status);
+        done++;
+        return next();
+      }).catch(function () { return done; });
+    }
+    return next();
+  }
+
   // ---------- ฟอร์มบันทึก PM ----------
   function allTechNames() {
     // รวมชื่อช่างที่เคยกรอกจากประวัติทุกลูกค้า (แยกชื่อที่คั่นด้วยจุลภาค)
@@ -838,6 +975,9 @@
     el.pmDate.value = todayStr();
     el.pmTech.value = lastTechUsed();  // เติมชื่อช่างครั้งล่าสุดให้ แก้ได้
     el.pmNote.value = "";
+    resetPmPhotos();
+    el.pmSubmitBtn.disabled = false;
+    el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
     el.techList.innerHTML = allTechNames().map(function (t) {
       return '<option value="' + t.replace(/"/g, "&quot;") + '"></option>';
     }).join("");
@@ -857,13 +997,35 @@
     var c = custById(currentId);
     if (!c) { closePmSheet(); return; }
     var date = el.pmDate.value || todayStr();
-    if (!c.history) c.history = [];
-    c.history.push({ date: date, note: el.pmNote.value.trim(), tech: el.pmTech.value.trim() });
-    c.lastPM = date;   // เริ่มนับรอบใหม่
-    saveCustomers();
-    closePmSheet();
-    flash("✅ บันทึก PM แล้ว เริ่มนับรอบใหม่");
-    openDetail(currentId);
+    var entry = { date: date, note: el.pmNote.value.trim(), tech: el.pmTech.value.trim() };
+
+    function finish(msg) {
+      if (!c.history) c.history = [];
+      c.history.push(entry);
+      c.lastPM = date;   // เริ่มนับรอบใหม่
+      saveCustomers();
+      resetPmPhotos();
+      el.pmSubmitBtn.disabled = false;
+      el.pmSubmitBtn.textContent = "✓ บันทึก แล้วเริ่มนับรอบใหม่";
+      closePmSheet();
+      flash(msg);
+      openDetail(currentId);
+    }
+
+    if (pmPhotoFiles.length === 0) { finish("✅ บันทึก PM แล้ว เริ่มนับรอบใหม่"); return; }
+
+    // อัปโหลดรูปก่อน แล้วค่อยบันทึก (ถ้าเน็ตล่มกลางทาง บันทึก PM พร้อมรูปเท่าที่อัปได้)
+    var folder = (c.id || "x") + "-" + date + "-" + Math.random().toString(36).slice(2, 6);
+    var blobs = pmPhotoFiles.map(function (p) { return p.blob; });
+    el.pmSubmitBtn.disabled = true;
+    uploadPmPhotos(folder, blobs, function (i, n) {
+      el.pmSubmitBtn.textContent = "⏳ กำลังอัปโหลดรูป " + i + "/" + n + "...";
+    }).then(function (done) {
+      if (done > 0) { entry.pf = folder; entry.pn = done; }
+      finish(done === blobs.length
+        ? "✅ บันทึก PM พร้อมรูป " + done + " รูปแล้ว"
+        : "⚠️ อัปโหลดรูปได้ " + done + "/" + blobs.length + " รูป — บันทึก PM เรียบร้อย");
+    });
   });
 
   // ---------- QR ตรวจเช็คสำหรับลูกค้า ----------
@@ -901,15 +1063,17 @@
       d: c.lastPM || "", nd: c.lastPM ? nextDue(c) : "",
       tech: (last && last.tech) || "", w: ((last && last.note) || "").slice(0, 150)
     };
+    if (last && last.pf && last.pn) { payload.pf = last.pf; payload.pn = last.pn; }
     qrShareUrl = PUBLIC_URL + "#qr=" + b64uEncode(payload);
     var qr = qrcode(0, "M");
     qr.addData(qrShareUrl);
     qr.make();
     el.qrHolder.innerHTML = qr.createImgTag(5, 8);
     el.qrTitle.textContent = "QR ตรวจเช็ค · " + c.name;
+    var photoTxt = (last && last.pn) ? " · 📷 มีรูปแนบ " + last.pn + " รูป" : "";
     if (sameMonth(c.lastPM)) {
       el.qrStatus.className = "qr-status ok";
-      el.qrStatus.textContent = "✅ ร้านนี้ตรวจเช็คเดือนนี้แล้ว (" + fmtThai(c.lastPM) + ") — ลูกค้าสแกนแล้วจะเห็นข้อความยืนยัน";
+      el.qrStatus.textContent = "✅ ร้านนี้ตรวจเช็คเดือนนี้แล้ว (" + fmtThai(c.lastPM) + ")" + photoTxt + " — ลูกค้าสแกนแล้วจะเห็นข้อความยืนยัน";
     } else {
       el.qrStatus.className = "qr-status warn";
       el.qrStatus.textContent = "⚠️ ยังไม่มีบันทึก PM เดือนนี้ — QR จะแสดงการตรวจล่าสุด " + fmtThai(c.lastPM) + " · ถ้าเพิ่งตรวจเสร็จ กด “✓ ทำ PM วันนี้แล้ว” ก่อน แล้วค่อยสร้าง QR ใหม่";
@@ -957,6 +1121,13 @@
     el.qvType.textContent = d.t || "-";
     el.qvModel.textContent = d.m || "-";
     el.qvNext.textContent = fmtThai(d.nd);
+    if (d.pf && d.pn) {
+      el.qvPhotoTitle.textContent = "📷 รูปจุดที่ตรวจเช็ค (" + d.pn + " รูป)";
+      el.qvPhotoGrid.innerHTML = photoLinks(d.pf, d.pn);
+      el.qvPhotoCard.hidden = false;
+    } else {
+      el.qvPhotoCard.hidden = true;
+    }
     el.pageList.hidden = true;
     el.pageDetail.hidden = true;
     el.fabAdd.hidden = true;
