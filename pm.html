@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" defer></script>
 <style>
   :root {
     --bg: #F2F8FB;            /* ขาว-ฟ้าน้ำแข็ง */
@@ -196,6 +197,34 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  /* ปุ่ม QR บนการ์ดลูกค้า */
+  .qr-btn {
+    flex-shrink: 0; border: 1px solid var(--border); background: var(--bg); color: var(--primary);
+    border-radius: 10px; padding: 9px 11px; font-family: inherit; font-size: .78rem; font-weight: 700;
+    cursor: pointer; line-height: 1;
+  }
+  .qr-btn:active { background: var(--primary-soft); }
+
+  /* sheet แสดง QR */
+  .qr-status { border-radius: 12px; padding: 10px 14px; font-size: .86rem; margin-bottom: 10px; }
+  .qr-status.ok { background: var(--green-bg); color: var(--green); }
+  .qr-status.warn { background: var(--yellow-bg); color: var(--yellow); }
+  #qrHolder { text-align: center; padding: 8px 0 2px; }
+  #qrHolder img {
+    width: 100%; max-width: 250px; image-rendering: pixelated;
+    border: 1px solid var(--border); border-radius: 12px; background: #fff;
+  }
+  .qr-hint { text-align: center; color: var(--muted); font-size: .82rem; margin: 8px 0 14px; }
+
+  /* หน้าบัตรตรวจเช็ค (ลูกค้าเปิดจากการสแกน QR) */
+  .qrv-check {
+    width: 72px; height: 72px; border-radius: 50%; background: var(--green-bg); color: var(--green);
+    font-size: 2rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
+  }
+  .qrv-check.warn { background: var(--yellow-bg); color: var(--yellow); }
+  .qrv-footer { text-align: center; color: var(--muted); font-size: .82rem; margin-top: 16px; }
+
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -271,9 +300,30 @@
 
     <div class="btn-row">
       <button type="button" class="btn primary" id="pmDoneBtn">✓ ทำ PM วันนี้แล้ว</button>
+      <button type="button" class="btn secondary" id="qrBtn">🔲 QR แจ้งลูกค้า — ตรวจเช็คแล้ว</button>
       <button type="button" class="btn secondary" id="editBtn">✏️ แก้ไขข้อมูล</button>
       <button type="button" class="btn danger" id="deleteBtn">🗑 ลบลูกค้า</button>
     </div>
+  </div>
+
+  <!-- ==================== หน้าบัตรตรวจเช็ค (ลูกค้าเปิดจากการสแกน QR) ==================== -->
+  <div id="pageQrView" hidden>
+    <div class="detail-card" style="text-align:center; padding:26px 18px">
+      <div class="qrv-check" id="qvIcon">✓</div>
+      <h2 id="qvHead" style="margin:0 0 8px; font-size:1.2rem"></h2>
+      <span class="count-badge" id="qvBadge" style="margin-top:0"></span>
+    </div>
+    <div class="detail-card">
+      <table class="info">
+        <tr><td class="k">วันที่ตรวจเช็คล่าสุด</td><td id="qvDate"></td></tr>
+        <tr><td class="k">ช่างผู้ตรวจ</td><td id="qvTech"></td></tr>
+        <tr id="qvWorkRow"><td class="k">งานที่ทำ</td><td id="qvWork"></td></tr>
+        <tr><td class="k">ประเภทเครื่อง</td><td id="qvType"></td></tr>
+        <tr><td class="k">ยี่ห้อ/รุ่น</td><td id="qvModel"></td></tr>
+        <tr><td class="k">กำหนดตรวจครั้งถัดไป</td><td id="qvNext"></td></tr>
+      </table>
+    </div>
+    <div class="qrv-footer">🔧 บริการตรวจเช็คโดย บริษัทโอเมก้าอีสาน</div>
   </div>
 </div>
 
@@ -363,6 +413,18 @@
   </form>
 </div>
 
+<!-- ==================== sheet แสดง QR ==================== -->
+<div class="sheet-overlay" id="qrOverlay"></div>
+<div class="sheet" id="qrSheet">
+  <div class="grip"></div>
+  <h3 id="qrTitle">QR ตรวจเช็ค PM</h3>
+  <div class="qr-status" id="qrStatus"></div>
+  <div id="qrHolder"></div>
+  <div class="qr-hint">ให้ลูกค้าสแกนด้วยกล้องมือถือ เพื่อดูรายละเอียดการตรวจเช็ค<br>(กดค้างที่รูป QR เพื่อบันทึกเป็นรูปภาพได้)</div>
+  <button type="button" class="btn primary" id="qrShareBtn" style="background:var(--primary)">📤 แชร์ลิงก์ให้ลูกค้า</button>
+  <button type="button" class="btn secondary" id="qrCloseBtn" style="margin-top:8px">ปิด</button>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -374,6 +436,9 @@
   // ดึงรายชื่อลูกค้าจากระบบกลาง (ทะเบียนเครื่องหน้าเงินเดือน + CRM) มาให้เลือกในฟอร์ม
   var SUPABASE_URL = "https://vhrexjmzdcvlojzanvum.supabase.co";
   var SUPABASE_KEY = "sb_publishable_47xRsvJMYfqk1XSlW6qjaQ_8ABKblB5";
+
+  // ลิงก์เว็บจริง — QR ต้องชี้ URL สาธารณะเสมอ เพื่อให้มือถือลูกค้าเปิดได้
+  var PUBLIC_URL = "https://omega-payroll.vercel.app/pm.html";
 
   // ---------- storage ----------
   function loadCustomers() {
@@ -416,6 +481,11 @@
     pmOverlay: $("pmOverlay"), pmSheet: $("pmSheet"), pmForm: $("pmForm"),
     pmDate: $("pmDate"), pmTech: $("pmTech"), techList: $("techList"),
     pmNote: $("pmNote"), pmCancelBtn: $("pmCancelBtn"),
+    qrBtn: $("qrBtn"), qrOverlay: $("qrOverlay"), qrSheet: $("qrSheet"), qrTitle: $("qrTitle"),
+    qrStatus: $("qrStatus"), qrHolder: $("qrHolder"), qrShareBtn: $("qrShareBtn"), qrCloseBtn: $("qrCloseBtn"),
+    pageQrView: $("pageQrView"), qvIcon: $("qvIcon"), qvHead: $("qvHead"), qvBadge: $("qvBadge"),
+    qvDate: $("qvDate"), qvTech: $("qvTech"), qvWorkRow: $("qvWorkRow"), qvWork: $("qvWork"),
+    qvType: $("qvType"), qvModel: $("qvModel"), qvNext: $("qvNext"),
     toast: $("toast")
   };
 
@@ -505,6 +575,7 @@
             ? '<a class="phone" href="tel:' + esc(c.phone.replace(/[^0-9+]/g, "")) + '" onclick="event.stopPropagation()">📞 ' + esc(c.phone) + "</a>"
             : '<span class="phone" style="color:var(--muted)">ไม่มีเบอร์โทร</span>') +
         "</div>" +
+        '<button type="button" class="qr-btn" data-qr="' + c.id + '">🔲 QR</button>' +
         '<div class="days"><div class="dn">' + dn + '</div><div class="dl">' + dl + "</div></div>" +
         "</div>";
     }).join("");
@@ -514,6 +585,8 @@
   }
 
   el.custList.addEventListener("click", function (e) {
+    var qrB = e.target.closest ? e.target.closest(".qr-btn") : null;
+    if (qrB) { openQrSheet(qrB.getAttribute("data-qr")); return; }
     var card = e.target.closest ? e.target.closest(".cust-card") : null;
     if (card) openDetail(card.getAttribute("data-id"));
   });
@@ -793,6 +866,104 @@
     openDetail(currentId);
   });
 
+  // ---------- QR ตรวจเช็คสำหรับลูกค้า ----------
+  // ข้อมูล PM อยู่ใน localStorage ของมือถือช่างเท่านั้น จึงฝังรายละเอียดลงในลิงก์ QR
+  // ให้มือถือลูกค้าเปิดดูได้เองโดยไม่ต้องพึ่งฐานข้อมูล
+  function b64uEncode(obj) {
+    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function b64uDecode(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    return JSON.parse(decodeURIComponent(escape(atob(s))));
+  }
+  function sameMonth(dateStr) {
+    return !!dateStr && String(dateStr).slice(0, 7) === todayStr().slice(0, 7);
+  }
+  function latestHistory(c) {
+    var best = null;
+    (c.history || []).forEach(function (h) { if (!best || h.date > best.date) best = h; });
+    return best;
+  }
+
+  var qrShareUrl = "";
+  function openQrSheet(id) {
+    var c = custById(id);
+    if (!c) return;
+    if (typeof qrcode !== "function") {
+      flash("⚠️ โหลดตัวสร้าง QR ไม่สำเร็จ — ต่ออินเทอร์เน็ตแล้วรีเฟรชหน้า");
+      return;
+    }
+    var last = latestHistory(c);
+    var payload = {
+      v: 1, n: c.name, t: c.type || "", m: c.model || "",
+      d: c.lastPM || "", nd: c.lastPM ? nextDue(c) : "",
+      tech: (last && last.tech) || "", w: ((last && last.note) || "").slice(0, 150)
+    };
+    qrShareUrl = PUBLIC_URL + "#qr=" + b64uEncode(payload);
+    var qr = qrcode(0, "M");
+    qr.addData(qrShareUrl);
+    qr.make();
+    el.qrHolder.innerHTML = qr.createImgTag(5, 8);
+    el.qrTitle.textContent = "QR ตรวจเช็ค · " + c.name;
+    if (sameMonth(c.lastPM)) {
+      el.qrStatus.className = "qr-status ok";
+      el.qrStatus.textContent = "✅ ร้านนี้ตรวจเช็คเดือนนี้แล้ว (" + fmtThai(c.lastPM) + ") — ลูกค้าสแกนแล้วจะเห็นข้อความยืนยัน";
+    } else {
+      el.qrStatus.className = "qr-status warn";
+      el.qrStatus.textContent = "⚠️ ยังไม่มีบันทึก PM เดือนนี้ — QR จะแสดงการตรวจล่าสุด " + fmtThai(c.lastPM) + " · ถ้าเพิ่งตรวจเสร็จ กด “✓ ทำ PM วันนี้แล้ว” ก่อน แล้วค่อยสร้าง QR ใหม่";
+    }
+    el.qrOverlay.classList.add("show");
+    el.qrSheet.classList.add("show");
+  }
+  function closeQrSheet() {
+    el.qrOverlay.classList.remove("show");
+    el.qrSheet.classList.remove("show");
+  }
+  el.qrBtn.addEventListener("click", function () { if (currentId) openQrSheet(currentId); });
+  el.qrCloseBtn.addEventListener("click", closeQrSheet);
+  el.qrOverlay.addEventListener("click", closeQrSheet);
+  el.qrShareBtn.addEventListener("click", function () {
+    if (!qrShareUrl) return;
+    if (navigator.share) {
+      navigator.share({ title: "รายละเอียดการตรวจเช็ค PM", url: qrShareUrl }).catch(function () {});
+    } else if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(qrShareUrl).then(function () { flash("📋 คัดลอกลิงก์แล้ว ส่งให้ลูกค้าได้เลย"); });
+    } else {
+      flash("⚠️ เบราว์เซอร์นี้ไม่รองรับการแชร์ — ให้ลูกค้าสแกน QR แทน");
+    }
+  });
+
+  // หน้าบัตรตรวจเช็ค — เปิดเมื่อลูกค้าสแกน QR (ข้อมูลอยู่ใน #qr=... ของลิงก์)
+  function tryOpenQrView() {
+    var m = location.hash.match(/^#qr=([A-Za-z0-9_-]+)$/);
+    if (!m) return false;
+    var d;
+    try { d = b64uDecode(m[1]); } catch (e) { return false; }
+    if (!d || !d.n) return false;
+    var checked = sameMonth(d.d);
+    el.qvIcon.textContent = checked ? "✓" : "🕐";
+    el.qvIcon.className = "qrv-check" + (checked ? "" : " warn");
+    el.qvHead.textContent = d.n;
+    el.qvBadge.className = "count-badge " + (checked ? "green" : "yellow");
+    el.qvBadge.textContent = checked
+      ? "✅ ช่างเข้าตรวจเช็คเดือนนี้แล้ว"
+      : (d.d ? "🕐 ตรวจเช็คล่าสุด " + fmtThai(d.d) : "ยังไม่มีข้อมูลการตรวจเช็ค");
+    el.qvDate.textContent = fmtThai(d.d);
+    el.qvTech.textContent = d.tech || "-";
+    el.qvWorkRow.hidden = !d.w;
+    el.qvWork.textContent = d.w || "";
+    el.qvType.textContent = d.t || "-";
+    el.qvModel.textContent = d.m || "-";
+    el.qvNext.textContent = fmtThai(d.nd);
+    el.pageList.hidden = true;
+    el.pageDetail.hidden = true;
+    el.fabAdd.hidden = true;
+    el.pageQrView.hidden = false;
+    return true;
+  }
+
   // ---------- ลบลูกค้า ----------
   el.deleteBtn.addEventListener("click", function () {
     var c = custById(currentId);
@@ -805,7 +976,7 @@
   });
 
   // ---------- init ----------
-  renderList();
+  if (!tryOpenQrView()) renderList();
 })();
 </script>
 </body>
