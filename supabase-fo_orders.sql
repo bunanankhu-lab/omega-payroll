@@ -27,6 +27,11 @@ create unique index if not exists fo_orders_fo_no_key on public.fo_orders (fo_no
 alter table public.fo_orders add column if not exists machine_model  text not null default '';  -- ยี่ห้อ/รุ่นเครื่อง
 alter table public.fo_orders add column if not exists machine_serial text not null default '';  -- Serial No.
 
+-- ลายเซ็นลูกค้าอนุมัติปิดใบงาน (เพิ่ม 2026-07-08 — รันซ้ำได้ ไม่กระทบข้อมูลเดิม)
+alter table public.fo_orders add column if not exists sign_data text not null default '';  -- รูปลายเซ็น (PNG data URL)
+alter table public.fo_orders add column if not exists sign_name text not null default '';  -- ชื่อลูกค้าผู้เซ็น
+alter table public.fo_orders add column if not exists sign_at   timestamptz;               -- เวลาที่เซ็น
+
 -- ============================================================
 -- หมายเหตุ RLS: ตอนนี้แอปอยู่โหมดพัฒนา (DEV_BYPASS_LOGIN = true)
 -- ตารางที่สร้างด้วย SQL จะ "ปิด RLS" โดยอัตโนมัติ เหมือนตารางอื่นๆ ที่ใช้อยู่

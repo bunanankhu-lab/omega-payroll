@@ -392,6 +392,13 @@
   .fo-items-table input[type="text"], .fo-items-table input[type="number"] { width: 100%; padding: 7px 9px; }
   .fo-items-table input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer; }
   .fo-items-table td { padding: 6px 6px; }
+  .fo-sign-box { margin: 12px 0 4px; padding: 12px; border: 1.5px dashed var(--primary); border-radius: 12px; }
+  .fo-sign-box > label { display: block; font-weight: 600; margin-bottom: 4px; }
+  #foSignPad { display: block; width: 100%; height: 160px; background: #fff; border: 1px solid var(--border); border-radius: 10px; touch-action: none; cursor: crosshair; }
+  .fo-sign-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .fo-sign-actions .btn-secondary { margin: 0; width: auto; }
+  #foSignSaved img { display: block; width: 100%; max-width: 320px; background: #fff; border: 1px solid var(--border); border-radius: 10px; }
+  #foSignSaved .btn-secondary { margin: 8px 0 0; width: auto; }
   .badge.st-draft { background: var(--bg-soft); color: var(--muted); }
   .badge.st-picking { background: var(--warn-bg); color: var(--warn); }
   .badge.st-picked { background: var(--income-bg); color: var(--income); }
@@ -426,8 +433,11 @@
   .fo-page table.fp-items th { background: #eee; font-size: 12px; }
   .fo-page table.fp-items td.c { text-align: center; }
   .fo-page .fp-note { font-size: 11px; color: #333; margin-bottom: 14px; }
-  .fo-page .fp-sign { display: flex; gap: 30px; margin-top: 34px; }
-  .fo-page .fp-sign .line { flex: 1; border-top: 1px solid #333; padding-top: 6px; text-align: center; color: #333; font-size: 12px; }
+  .fo-page .fp-sign { display: flex; gap: 30px; margin-top: 20px; }
+  .fo-page .fp-sign .line { flex: 1; text-align: center; color: #333; font-size: 12px; }
+  .fo-page .fp-sign .sig-area { height: 48px; display: flex; align-items: flex-end; justify-content: center; }
+  .fo-page .fp-sign .sig-area img { max-height: 46px; max-width: 100%; }
+  .fo-page .fp-sign .sl { border-top: 1px solid #333; padding-top: 6px; margin-top: 2px; }
 
   @media print {
     body * { visibility: hidden !important; }
@@ -938,6 +948,27 @@
             <label for="foNote">หมายเหตุ</label>
             <input type="text" id="foNote" placeholder="เช่น ลูกค้าให้เข้าหลัง 14:00">
           </div>
+
+          <div class="fo-sign-box" id="foSignBox" style="display:none;">
+            <label>✍️ ลายเซ็นลูกค้า — อนุมัติปิดใบงาน *</label>
+            <div class="hint" style="margin-bottom:8px;">ยื่นเครื่องให้ลูกค้าเซ็นชื่อในกรอบสีขาวด้านล่าง เพื่อยืนยันว่างานเสร็จเรียบร้อยก่อนกดบันทึก</div>
+            <div id="foSignSaved" style="display:none;">
+              <img id="foSignSavedImg" alt="ลายเซ็นลูกค้า">
+              <div class="hint" id="foSignSavedInfo" style="margin-top:6px;"></div>
+              <button type="button" class="btn-secondary" id="foSignRedoBtn">✍️ ให้ลูกค้าเซ็นใหม่</button>
+            </div>
+            <div id="foSignPadWrap">
+              <canvas id="foSignPad"></canvas>
+              <div class="fo-sign-actions">
+                <button type="button" class="btn-secondary" id="foSignClearBtn">🧽 ล้างลายเซ็น</button>
+              </div>
+            </div>
+            <div class="field" style="margin-top:10px;">
+              <label for="foSignName">ชื่อผู้เซ็น (ลูกค้า)</label>
+              <input type="text" id="foSignName" placeholder="ชื่อ-นามสกุล ลูกค้าผู้อนุมัติ">
+            </div>
+          </div>
+
           <button type="submit" class="submit-btn" id="foSubmitBtn">บันทึกใบงาน</button>
           <button type="button" class="btn-secondary" id="foCancelBtn" style="display:none;">ยกเลิกการแก้ไข</button>
           <div class="err" id="foErr"></div>
@@ -1248,6 +1279,9 @@
     foMachineModel: $("foMachineModel"), foMachineSerial: $("foMachineSerial"),
     foItemsBody: $("foItemsBody"), foAddItemBtn: $("foAddItemBtn"),
     foPickProgress: $("foPickProgress"), foPickedBy: $("foPickedBy"), foStatus: $("foStatus"), foNote: $("foNote"),
+    foSignBox: $("foSignBox"), foSignPad: $("foSignPad"), foSignPadWrap: $("foSignPadWrap"),
+    foSignSaved: $("foSignSaved"), foSignSavedImg: $("foSignSavedImg"), foSignSavedInfo: $("foSignSavedInfo"),
+    foSignRedoBtn: $("foSignRedoBtn"), foSignClearBtn: $("foSignClearBtn"), foSignName: $("foSignName"),
     foSubmitBtn: $("foSubmitBtn"), foCancelBtn: $("foCancelBtn"), foErr: $("foErr"),
     foSearch: $("foSearch"), foStatusFilter: $("foStatusFilter"),
     foBody: $("foBody"), foEmpty: $("foEmpty"), foCount: $("foCount"),
@@ -1322,13 +1356,15 @@
              jobDesc: r.job_desc || "", jobDate: r.job_date || "", technician: r.technician || "",
              coordinator: r.coordinator || "", status: FO_STATUS[r.status] ? r.status : "draft",
              machineModel: r.machine_model || "", machineSerial: r.machine_serial || "",
-             items: Array.isArray(r.items) ? r.items : [], pickedBy: r.picked_by || "", note: r.note || "" };
+             items: Array.isArray(r.items) ? r.items : [], pickedBy: r.picked_by || "", note: r.note || "",
+             signData: r.sign_data || "", signName: r.sign_name || "", signAt: r.sign_at || "" };
   }
   function foToDb(f) {
     return { fo_no: f.foNo, customer: f.customer, site: f.site || "", job_desc: f.jobDesc || "",
              job_date: f.jobDate || null, technician: f.technician || "", coordinator: f.coordinator || "",
              machine_model: f.machineModel || "", machine_serial: f.machineSerial || "",
-             status: f.status || "draft", items: f.items || [], picked_by: f.pickedBy || "", note: f.note || "" };
+             status: f.status || "draft", items: f.items || [], picked_by: f.pickedBy || "", note: f.note || "",
+             sign_data: f.signData || "", sign_name: f.signName || "", sign_at: f.signAt || null };
   }
   async function loadFo() {
     foTableMissing = false;
@@ -2301,9 +2337,68 @@
     el.foPickProgress.textContent = total ? ("หยิบแล้ว " + done + "/" + total) : "";
   }
 
+  // ---------- ลายเซ็นลูกค้า (ยืนยันปิดใบงาน) ----------
+  var foSignCtx = null, foSignHasInk = false, foSignDrawing = false, foSignLast = null;
+  var foSignExisting = null; // ลายเซ็นที่บันทึกไว้แล้ว {data, name, at} — โหลดตอนกดแก้ไขใบงาน
+
+  function foSignSetupPad() {
+    var c = el.foSignPad;
+    var w = c.parentElement.clientWidth || 320;
+    var dpr = window.devicePixelRatio || 1;
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(160 * dpr);
+    foSignCtx = c.getContext("2d");
+    foSignCtx.setTransform(1, 0, 0, 1, 0, 0);
+    foSignCtx.fillStyle = "#fff";
+    foSignCtx.fillRect(0, 0, c.width, c.height);
+    foSignCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    foSignCtx.strokeStyle = "#14264a";
+    foSignCtx.lineWidth = 2.2;
+    foSignCtx.lineCap = "round";
+    foSignCtx.lineJoin = "round";
+    foSignHasInk = false;
+  }
+  function foSignPos(ev) {
+    var c = el.foSignPad, r = c.getBoundingClientRect();
+    var dpr = window.devicePixelRatio || 1;
+    return { x: (ev.clientX - r.left) * ((c.width / dpr) / r.width),
+             y: (ev.clientY - r.top) * ((c.height / dpr) / r.height) };
+  }
+  // ย่อภาพลายเซ็นเหลือกว้าง 500px ก่อนเก็บลงฐานข้อมูล (มือถือจอ dpr สูง canvas ใหญ่เกินจำเป็น)
+  function foSignExportData() {
+    var c = el.foSignPad;
+    var w = Math.min(500, c.width), h = Math.round(c.height * (w / c.width));
+    var t = document.createElement("canvas");
+    t.width = w; t.height = h;
+    var tc = t.getContext("2d");
+    tc.fillStyle = "#fff";
+    tc.fillRect(0, 0, w, h);
+    tc.drawImage(c, 0, 0, w, h);
+    return t.toDataURL("image/png");
+  }
+  function updateFoSignBox() {
+    var need = el.foStatus.value === "done" || el.foStatus.value === "billed";
+    el.foSignBox.style.display = need ? "" : "none";
+    if (!need) return;
+    if (foSignExisting && foSignExisting.data) {
+      el.foSignSaved.style.display = "";
+      el.foSignPadWrap.style.display = "none";
+      el.foSignSavedImg.src = foSignExisting.data;
+      el.foSignSavedInfo.textContent = "✅ ลูกค้าเซ็นอนุมัติแล้ว" +
+        (foSignExisting.name ? " โดย " + foSignExisting.name : "") +
+        (foSignExisting.at ? " เมื่อ " + formatDateThai(String(foSignExisting.at).slice(0, 10)) : "");
+    } else {
+      el.foSignSaved.style.display = "none";
+      el.foSignPadWrap.style.display = "";
+      if (!foSignHasInk) foSignSetupPad(); // ปรับขนาด/ล้างเฉพาะตอนยังไม่มีหมึก — กันลายเซ็นหายตอนสลับสถานะไปมา
+    }
+  }
+
   function resetFoForm() {
     editingFoId = null;
     foItems = [];
+    foSignExisting = null;
+    foSignHasInk = false;
     el.foForm.reset();
     el.foNo.value = genFoNo();
     el.foDate.value = todayStr();
@@ -2313,6 +2408,7 @@
     el.foCancelBtn.style.display = "none";
     el.foErr.textContent = "";
     renderFoItemsEditor();
+    updateFoSignBox();
   }
 
   function startEditFo(id) {
@@ -2327,16 +2423,32 @@
     el.foJob.value = f.jobDesc; el.foPickedBy.value = f.pickedBy;
     el.foMachineModel.value = f.machineModel || ""; el.foMachineSerial.value = f.machineSerial || "";
     el.foStatus.value = f.status; el.foNote.value = f.note;
+    foSignExisting = f.signData ? { data: f.signData, name: f.signName || "", at: f.signAt || "" } : null;
+    foSignHasInk = false;
+    el.foSignName.value = f.signName || "";
     el.foFormTitle.textContent = "✏️ แก้ไขใบงาน " + f.foNo;
     el.foSubmitBtn.textContent = "บันทึกการแก้ไข";
     el.foCancelBtn.style.display = "";
     el.foErr.textContent = "";
     renderFoItemsEditor();
+    updateFoSignBox();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function readFoForm() {
+    var sign = { signData: "", signName: el.foSignName.value.trim(), signAt: null };
+    if (foSignHasInk && el.foSignPadWrap.style.display !== "none") {
+      sign.signData = foSignExportData();          // ลูกค้าเพิ่งเซ็นสดๆ บนจอ
+      sign.signAt = new Date().toISOString();
+    } else if (foSignExisting && foSignExisting.data) {
+      sign.signData = foSignExisting.data;         // ใช้ลายเซ็นเดิมที่บันทึกไว้แล้ว
+      sign.signName = sign.signName || foSignExisting.name || "";
+      sign.signAt = foSignExisting.at || null;
+    }
     return {
+      signData: sign.signData,
+      signName: sign.signName,
+      signAt: sign.signAt,
       foNo: el.foNo.value.trim() || genFoNo(),
       jobDate: el.foDate.value || "",
       customer: el.foCustomer.value.trim(),
@@ -2360,6 +2472,13 @@
     if (foTableMissing) { el.foErr.textContent = "ยังไม่ได้สร้างตาราง fo_orders ใน Supabase — ดูวิธีด้านบนของหน้านี้"; return; }
     var data = readFoForm();
     if (!data.customer) { el.foErr.textContent = "กรุณากรอกชื่อลูกค้า/ร้าน"; return; }
+    // ปิดใบงาน (ติดตั้งเสร็จ/วางบิล) ต้องมีลายเซ็นลูกค้าอนุมัติก่อนเสมอ
+    if ((data.status === "done" || data.status === "billed") && !data.signData) {
+      el.foErr.textContent = "⚠️ ปิดใบงานไม่ได้ — ต้องให้ลูกค้าเซ็นชื่อในกรอบลายเซ็นเพื่ออนุมัติก่อน";
+      updateFoSignBox();
+      el.foSignBox.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     el.foSubmitBtn.disabled = true;
     try {
       if (editingFoId != null) {
@@ -2423,7 +2542,8 @@
         "<td>" + formatDateThai(f.jobDate) + "</td>" +
         "<td>" + escapeHtml(f.technician || "—") + "</td>" +
         "<td>" + pickBadge + "</td>" +
-        "<td>" + foStatusBadge(f.status) + "</td>" +
+        "<td>" + foStatusBadge(f.status) +
+          (f.signData ? '<div class="hint">✍️ ' + escapeHtml(f.signName || "ลูกค้าเซ็นแล้ว") + "</div>" : "") + "</td>" +
         '<td style="white-space:nowrap;">' +
           '<button type="button" class="icon-btn" data-foedit="' + f.id + '" title="แก้ไข">✏️</button> ' +
           '<button type="button" class="icon-btn" data-foprint="' + f.id + '" title="พิมพ์ FO 3 ใบ + ใบถอด">🖨️</button> ' +
@@ -2788,7 +2908,15 @@
           '<div class="fp-warn">' + warnText + "</div></div>" +
       "</div>" +
       bodyHtml +
-      '<div class="fp-sign">' + signs.map(function (s) { return '<div class="line">' + s + "<br>วันที่ ______ / ______ / ______</div>"; }).join("") + "</div>" +
+      '<div class="fp-sign">' + signs.map(function (s) {
+        var signed = f.signData && s.indexOf("ลูกค้า") !== -1; // ช่องลูกค้าเซ็น — ถ้าเซ็นบนจอแล้วพิมพ์ลายเซ็นจริงลงไปเลย
+        return '<div class="line">' +
+          '<div class="sig-area">' + (signed ? '<img src="' + f.signData + '" alt="ลายเซ็นลูกค้า">' : "") + "</div>" +
+          '<div class="sl">' + s +
+            (signed && f.signName ? "<br>(" + escapeHtml(f.signName) + ")" : "") +
+            "<br>วันที่ " + (signed && f.signAt ? formatDateThai(String(f.signAt).slice(0, 10)) : "______ / ______ / ______") +
+          "</div></div>";
+      }).join("") + "</div>" +
     "</div>";
   }
   function buildFoPrintHtml(f) {
@@ -3189,6 +3317,38 @@
   // ---------- FO events ----------
   el.foForm.addEventListener("submit", submitFo);
   el.foCancelBtn.addEventListener("click", resetFoForm);
+  el.foStatus.addEventListener("change", updateFoSignBox);
+  el.foSignClearBtn.addEventListener("click", foSignSetupPad);
+  el.foSignRedoBtn.addEventListener("click", function () {
+    foSignExisting = null;   // ทิ้งลายเซ็นเดิม เปิดกรอบให้ลูกค้าเซ็นใหม่ (มีผลจริงเมื่อกดบันทึก)
+    foSignHasInk = false;
+    updateFoSignBox();
+  });
+  el.foSignPad.addEventListener("pointerdown", function (ev) {
+    if (!foSignCtx) foSignSetupPad();
+    ev.preventDefault();
+    try { el.foSignPad.setPointerCapture(ev.pointerId); } catch (e) {}
+    foSignDrawing = true;
+    foSignLast = foSignPos(ev);
+    foSignCtx.beginPath();
+    foSignCtx.moveTo(foSignLast.x, foSignLast.y);
+    foSignCtx.lineTo(foSignLast.x + 0.1, foSignLast.y + 0.1); // จุดเดียวก็เป็นหมึก (กันแตะเบาๆ แล้วไม่ติด)
+    foSignCtx.stroke();
+    foSignHasInk = true;
+  });
+  el.foSignPad.addEventListener("pointermove", function (ev) {
+    if (!foSignDrawing) return;
+    ev.preventDefault();
+    var p = foSignPos(ev);
+    foSignCtx.beginPath();
+    foSignCtx.moveTo(foSignLast.x, foSignLast.y);
+    foSignCtx.lineTo(p.x, p.y);
+    foSignCtx.stroke();
+    foSignLast = p;
+  });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(function (evName) {
+    el.foSignPad.addEventListener(evName, function () { foSignDrawing = false; });
+  });
   el.foAddItemBtn.addEventListener("click", function () {
     foItems.push({ name: "", spec: "", qty: "", unit: "", picked: false });
     renderFoItemsEditor();
